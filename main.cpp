@@ -1,12 +1,22 @@
 #include "mbed.h"
+#include "motor.h"
+#include "QEI.h"
 
-DigitalOut myled(LED1);
+Motor left_motor(PB_6, PA_7);
+Motor right_motor(PB_10, PC_7);
 
-int main() {
-    while(1) {
-        myled = 1; // LED is ON
-        wait(1.2); // 200 ms
-        myled = 0; // LED is OFF
-        wait(0.2); // 1 sec
+QEI left_encoder(PA_15, PB_3, NC, 12, QEI::X4_ENCODING);
+QEI right_encoder(PA_1, PC_4, NC, 12, QEI::X4_ENCODING);
+
+//Serial serial(USBTX, USBRX);
+
+int main()
+{
+    left_encoder.reset();
+    right_encoder.reset();
+    while(right_encoder.getPulses() > -10 && right_encoder.getPulses() < 10) {
+        left_motor.set_speed(0.1);
+        right_motor.set_speed(0.1);
+        //serial.printf("Left: %d, Right: %d\n", left_encoder.getPulses(), right_encoder.getPulses());
     }
 }
