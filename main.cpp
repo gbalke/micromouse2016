@@ -1,22 +1,20 @@
 #include "mbed.h"
 #include "motor.h"
-#include "QEI.h"
+#include "encoder.h"
 
 Motor left_motor(PB_6, PA_7);
 Motor right_motor(PB_10, PC_7);
 
-QEI left_encoder(PA_15, PB_3, NC, 12, QEI::X4_ENCODING);
-QEI right_encoder(PA_1, PC_4, NC, 12, QEI::X4_ENCODING);
+Encoder left_encoder(PA_1, PC_4, Encoder::X4);
+Encoder right_encoder(PB_3, PA_15, Encoder::X4);
 
 Serial serial(PA_9, PA_10);
 
 int main()
 {
-    left_encoder.reset();
-    right_encoder.reset();
-    while(right_encoder.getPulses() > -10 && right_encoder.getPulses() < 10) {
-        left_motor.set_speed(0.1);
-        right_motor.set_speed(0.1);
-        serial.printf("Left: %d, Right: %d\n", left_encoder.getPulses(), right_encoder.getPulses());
+    while(true) {
+        serial.printf("Left: %d\r\n", left_encoder.count());
+        serial.printf("Right: %d\r\n", right_encoder.count());
+        wait(0.5);
     }
 }
