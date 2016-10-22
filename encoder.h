@@ -4,12 +4,15 @@
 class Encoder {
     public:
         enum Encoding {X1, X2, X4};
-        Encoder(PinName a, PinName b, Encoding encoding);
+        Encoder(PinName a, PinName b, Encoding encoding, int divider = 1);
         int count();
         void reset();
     private:
         InterruptIn a, b;
         volatile int steps;
-        void rise();
-        void fall();
+        void a_rise();
+        void a_fall();
+        void b_rise();
+        void b_fall();
+        double divider;
 };
