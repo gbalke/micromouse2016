@@ -1,8 +1,9 @@
 #include "mbed.h"
 #include "encoder.h"
+#include "digital_input.h"
 
 Encoder::Encoder(PinName a, PinName b, Encoding encoding, float divider)
-: a(a), b(b), steps(0), divider(divider)
+: a(a), b(b), steps(0), divider(divider), a_in(a), b_in(b)
 {
     switch(encoding) {
         case X4:
@@ -28,7 +29,7 @@ void Encoder::reset()
 
 void Encoder::a_rise()
 {
-    if(b) {
+    if(b_in.read()) {
         steps++;
     } else {
         steps--;
@@ -37,7 +38,7 @@ void Encoder::a_rise()
 
 void Encoder::a_fall()
 {
-    if(b) {
+    if(b_in.read()) {
         steps--;
     } else {
         steps++;
@@ -46,7 +47,7 @@ void Encoder::a_fall()
 
 void Encoder::b_rise()
 {
-    if(a) {
+    if(a_in.read()) {
         steps--;
     } else {
         steps++;
@@ -55,7 +56,7 @@ void Encoder::b_rise()
 
 void Encoder::b_fall()
 {
-    if(a) {
+    if(a_in.read()) {
         steps++;
     } else {
         steps--;

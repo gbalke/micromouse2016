@@ -14,7 +14,6 @@ Encoder right_encoder(PB_3, PA_15, Encoder::X4);
 void forward(int cells)
 {
     const float P = 0;//0.001;
-    // Forward 2
     while(left_encoder.count() < 500 * cells) {
         int error = left_encoder.count() - right_encoder.count();
         float correction = P * error;
@@ -42,10 +41,8 @@ void right_turn(int times)
 
 int main()
 {
-    forward(2);
-    right_turn(-1);
-    forward(1);
-    right_turn(1);
-    forward(1);
-    right_turn(3);
+    while(true) {
+        serial.printf("Left: %d\r\n", left_encoder.count());
+        serial.printf("Right: %d\r\n", right_encoder.count());
+    }
 }
