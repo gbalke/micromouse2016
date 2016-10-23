@@ -1,6 +1,7 @@
 #pragma once
-#include "mbed.h"
+#include "mbed-dev/hal/pinmap.h"
 #include "digital_input.h"
+#include "interrupt_pin.h"
 
 class Encoder {
     public:
@@ -9,12 +10,11 @@ class Encoder {
         int count();
         void reset();
     private:
-        InterruptIn a, b;
-        DigitalInput a_in, b_in;
+        InterruptPin a, b;
         float divider;
         volatile int steps;
-        void a_rise();
-        void a_fall();
-        void b_rise();
-        void b_fall();
+        static void a_rise(Encoder &e);
+        static void a_fall(Encoder &e);
+        static void b_rise(Encoder &e);
+        static void b_fall(Encoder &e);
 };
