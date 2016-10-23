@@ -1,7 +1,7 @@
 #include "mbed.h"
 #include "motor.h"
 
-Motor::Motor(PinName forward, PinName backward, int multiplier)
+Motor::Motor(PinName forward, PinName backward, float multiplier)
 : forward(forward), backward(backward), multiplier(multiplier)
 {
     set_speed(0);

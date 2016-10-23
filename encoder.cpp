@@ -1,7 +1,7 @@
 #include "mbed.h"
 #include "encoder.h"
 
-Encoder::Encoder(PinName a, PinName b, Encoding encoding, int divider)
+Encoder::Encoder(PinName a, PinName b, Encoding encoding, float divider)
 : a(a), b(b), steps(0), divider(divider)
 {
     switch(encoding) {
