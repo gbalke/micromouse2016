@@ -2,6 +2,9 @@ IRSensor::IRSensor (PinName ep, PinName rp) : emitter_pin(ep), receiver_pin(rp)
 {
 	DigitalOut output(emitter_pin);
 	AnalogIn input(receiver_pin);
+
+	// Default emitter pin to off.
+	emitter_pin = 0;
 }
 
 uint16_t IRSensor::pulse()
