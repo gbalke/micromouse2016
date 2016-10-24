@@ -42,7 +42,6 @@ void right_turn(int times)
 int main()
 {
     while(true) {
-        serial.printf("Left: %d\r\n", left_encoder.count());
-        serial.printf("Right: %d\r\n", right_encoder.count());
+        serial.printf("haven't crashed yet");
     }
 }

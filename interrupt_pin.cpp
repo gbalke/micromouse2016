@@ -2,6 +2,7 @@
 #include "mbed-dev/hal/pinmap.h"
 #include "digital_input.h"
 #include "interrupt_pin.h"
+#include "mbed.h"
 
 static void (*volatile *const ivt)() = (void (**)()) 0x00000040;
 
@@ -50,6 +51,11 @@ static int exti15_10_pin = 0;
 
 static inline void main_handler(uint8_t pin)
 {
+    // Clears interrupt
+    __disable_irq();
+    exti->pr &= ~(0x1 << pin);
+    __enable_irq();
+    return;
     int index = pin / 4;
     int offset = pin % 4;
     // Finds which actual pin was triggered
@@ -67,8 +73,6 @@ static inline void main_handler(uint8_t pin)
         void (*callback)() = (void (*)()) handler.callback;
         callback();
     }
-    // Clears interrupt
-    exti->pr &= ~(0x1 << pin);
 }
 
 __attribute__((interrupt))
@@ -86,7 +90,7 @@ static void exti9_5_handler() { main_handler(exti9_5_pin); }
 __attribute__((interrupt))
 static void exti15_10_handler() { main_handler(exti15_10_pin); }
 
-/*__attribute__((constructor))
+__attribute__((constructor))
 static void register_handlers()
 {
     ivt[6] = exti0_handler;
@@ -96,7 +100,7 @@ static void register_handlers()
     ivt[10] = exti4_handler;
     ivt[23] = exti9_5_handler;
     ivt[40] = exti15_10_handler;
-}*/
+}
 
 
 InterruptPin::InterruptPin(PinName pin)
@@ -117,7 +121,7 @@ void InterruptPin::register_edge(Edge edge, void (*callback)())
 
 void InterruptPin::register_edge(Edge edge, void (*callback)(void *), void *data)
 {
-    //enable_exti(edge);
+    enable_exti(edge);
     if(edge == RISING || edge == BOTH) {
         exti_rising_handlers[this->pin] = {(void *)callback, data};
     }
