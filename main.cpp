@@ -42,6 +42,6 @@ void right_turn(int times)
 int main()
 {
     while(true) {
-        serial.printf("haven't crashed yet");
+        serial.printf("haven't crashed yet\r\n");
     }
 }

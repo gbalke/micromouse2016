@@ -49,10 +49,13 @@ static interrupt_handler exti_falling_handlers[16] = {0};
 static int exti9_5_pin = 0;
 static int exti15_10_pin = 0;
 
+DigitalOut led(LED2);
+
 static inline void main_handler(uint8_t pin)
 {
     // Clears interrupt
     __disable_irq();
+    led.write(1);
     exti->pr &= ~(0x1 << pin);
     __enable_irq();
     return;
@@ -90,16 +93,27 @@ static void exti9_5_handler() { main_handler(exti9_5_pin); }
 __attribute__((interrupt))
 static void exti15_10_handler() { main_handler(exti15_10_pin); }
 
+__attribute__((interrupt))
+static void test_handler()
+{
+    // Clears interrupt
+    __disable_irq();
+    led.write(1);
+    exti->pr = 0x0;
+    __enable_irq();
+    return;
+}
+
 __attribute__((constructor))
 static void register_handlers()
 {
-    ivt[6] = exti0_handler;
-    ivt[7] = exti1_handler;
-    ivt[8] = exti2_handler;
-    ivt[9] = exti3_handler;
-    ivt[10] = exti4_handler;
-    ivt[23] = exti9_5_handler;
-    ivt[40] = exti15_10_handler;
+    ivt[6] = &test_handler;
+    ivt[7] = &test_handler;
+    ivt[8] = &test_handler;
+    ivt[9] = &test_handler;
+    ivt[10] = &test_handler;
+    ivt[23] = &test_handler;
+    ivt[40] = &test_handler;
 }
 
 
