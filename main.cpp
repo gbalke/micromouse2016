@@ -39,9 +39,12 @@ void right_turn(int times)
     wait(0.5);
 }
 
+static void (*volatile *const ivt)() = (void (**)()) 0x00000040;
+
 int main()
 {
     while(true) {
-        serial.printf("haven't crashed yet\r\n");
+        serial.printf("Left: %d\r\n", left_encoder.count());
+        serial.printf("Right: %d\r\n", right_encoder.count());
     }
 }

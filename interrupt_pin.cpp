@@ -49,16 +49,8 @@ static interrupt_handler exti_falling_handlers[16] = {0};
 static int exti9_5_pin = 0;
 static int exti15_10_pin = 0;
 
-DigitalOut led(LED2);
-
 static inline void main_handler(uint8_t pin)
 {
-    // Clears interrupt
-    __disable_irq();
-    led.write(1);
-    exti->pr &= ~(0x1 << pin);
-    __enable_irq();
-    return;
     int index = pin / 4;
     int offset = pin % 4;
     // Finds which actual pin was triggered
@@ -76,46 +68,29 @@ static inline void main_handler(uint8_t pin)
         void (*callback)() = (void (*)()) handler.callback;
         callback();
     }
-}
-
-__attribute__((interrupt))
-static void exti0_handler() { main_handler(0); }
-__attribute__((interrupt))
-static void exti1_handler() { main_handler(1); }
-__attribute__((interrupt))
-static void exti2_handler() { main_handler(2); }
-__attribute__((interrupt))
-static void exti3_handler() { main_handler(3); }
-__attribute__((interrupt))
-static void exti4_handler() { main_handler(4); }
-__attribute__((interrupt))
-static void exti9_5_handler() { main_handler(exti9_5_pin); }
-__attribute__((interrupt))
-static void exti15_10_handler() { main_handler(exti15_10_pin); }
-
-__attribute__((interrupt))
-static void test_handler()
-{
     // Clears interrupt
-    __disable_irq();
-    led.write(1);
-    exti->pr = 0x0;
-    __enable_irq();
-    return;
+    exti->pr |= (0x1 << pin);
 }
 
-__attribute__((constructor))
-static void register_handlers()
-{
-    ivt[6] = &test_handler;
-    ivt[7] = &test_handler;
-    ivt[8] = &test_handler;
-    ivt[9] = &test_handler;
-    ivt[10] = &test_handler;
-    ivt[23] = &test_handler;
-    ivt[40] = &test_handler;
-}
+// Handlers must have these exact names to overwrite vector table entries
+extern "C" {
 
+__attribute__((interrupt))
+void EXTI0_IRQHandler() { main_handler(0); }
+__attribute__((interrupt))
+void EXTI1_IRQHandler() { main_handler(1); }
+__attribute__((interrupt))
+void EXTI2_IRQHandler() { main_handler(2); }
+__attribute__((interrupt))
+void EXTI3_IRQHandler() { main_handler(3); }
+__attribute__((interrupt))
+void EXTI4_IRQHandler() { main_handler(4); }
+__attribute__((interrupt))
+void EXTI9_5_IRQHandler() { main_handler(exti9_5_pin); }
+__attribute__((interrupt))
+void EXTI15_10_IRQHandler() { main_handler(exti15_10_pin); }
+
+}
 
 InterruptPin::InterruptPin(PinName pin)
 : DigitalInput(pin)
