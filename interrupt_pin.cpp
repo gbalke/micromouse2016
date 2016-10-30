@@ -51,6 +51,7 @@ static int exti15_10_pin = 0;
 
 static inline void main_handler(uint8_t pin)
 {
+    __disable_irq();
     int index = pin / 4;
     int offset = pin % 4;
     // Finds which actual pin was triggered
@@ -70,6 +71,7 @@ static inline void main_handler(uint8_t pin)
     }
     // Clears interrupt
     exti->pr |= (0x1 << pin);
+    __enable_irq();
 }
 
 // Handlers must have these exact names to overwrite vector table entries
