@@ -3,19 +3,18 @@
 
 #include <mbed.h>
 
-const float IRDelay = 0.001f;
-
 class IRSensor
 {
 	private:
-		PinName emitter_pin;
-		PinName receiver_pin;
+		AnalogIn receiver_pin;
+		DigitalOut emitter_pin;
 		uint16_t lastRead;
 
 	public:
-		IRSensor (PinName ep, PinName rp);
+		IRSensor (PinName rp, PinName ep);
 
-		uint16_t pulse();
+		void read();
+		uint16_t getValue();
 };
 
 #endif

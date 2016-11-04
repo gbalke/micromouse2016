@@ -3,7 +3,7 @@
 
 # cross-platform directory manipulation
 PROJECT = micromouse
-OBJS = main.o motor.o encoder.o digital_input.o
+OBJS = main.o motor.o encoder.o digital_input.o irsensor.o
 
 ifeq ($(shell echo $$OS),$$OS)
     MAKEDIR = if not exist "$(1)" mkdir "$(1)"
