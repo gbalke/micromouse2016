@@ -1,18 +1,22 @@
-#include "mbed.h"
+#include "mbed-dev/hal/pinmap.h"
 #include "encoder.h"
 #include "digital_input.h"
+#include "interrupt_pin.h"
 
 Encoder::Encoder(PinName a, PinName b, Encoding encoding, float divider)
-: a(a), b(b), steps(0), divider(divider), a_in(a), b_in(b)
+: a(a), b(b), divider(divider), steps(0)
 {
     switch(encoding) {
+        case X0:
+            this->a.register_edge(InterruptPin::BOTH, (void (*)(void *)) inc, (void*)this);
+            break;
         case X4:
-            this->b.rise(this, &Encoder::b_rise);
-            this->b.fall(this, &Encoder::b_fall);
+            this->b.register_edge(InterruptPin::RISING, (void (*)(void *)) b_rise, (void*)this);
+            this->b.register_edge(InterruptPin::FALLING, (void (*)(void *)) b_fall, (void*)this);
         case X2:
-            this->a.fall(this, &Encoder::a_fall);
+            this->a.register_edge(InterruptPin::FALLING, (void (*)(void *)) a_fall, (void*)this);
         case X1:
-            this->a.rise(this, &Encoder::a_rise);
+            this->a.register_edge(InterruptPin::RISING, (void (*)(void *)) a_rise, (void*)this);
             break;
     }
 }
@@ -27,38 +31,43 @@ void Encoder::reset()
     steps = 0;
 }
 
-void Encoder::a_rise()
+void Encoder::inc(Encoder &e)
 {
-    if(b_in.read()) {
-        steps++;
+    e.steps++;
+}
+
+void Encoder::a_rise(Encoder &e)
+{
+    if(e.b.read()) {
+        e.steps++;
     } else {
-        steps--;
+        e.steps--;
     }
 }
 
-void Encoder::a_fall()
+void Encoder::a_fall(Encoder &e)
 {
-    if(b_in.read()) {
-        steps--;
+    if(e.b.read()) {
+        e.steps--;
     } else {
-        steps++;
+        e.steps++;
     }
 }
 
-void Encoder::b_rise()
+void Encoder::b_rise(Encoder &e)
 {
-    if(a_in.read()) {
-        steps--;
+    if(e.a.read()) {
+        e.steps--;
     } else {
-        steps++;
+        e.steps++;
     }
 }
 
-void Encoder::b_fall()
+void Encoder::b_fall(Encoder &e)
 {
-    if(a_in.read()) {
-        steps++;
+    if(e.a.read()) {
+        e.steps++;
     } else {
-        steps--;
+        e.steps--;
     }
 }

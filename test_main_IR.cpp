@@ -9,8 +9,8 @@ Serial serial(PA_9, PA_10);
 Motor left_motor(PB_6, PA_7, 3);
 Motor right_motor(PC_7, PB_10);
 
-Encoder left_encoder(PA_1, PC_4, Encoder::X4, sqrt(3));
-Encoder right_encoder(PB_3, PA_15, Encoder::X4);
+Encoder left_encoder(PA_1, PC_4, Encoder::X0, sqrt(3));
+Encoder right_encoder(PA_15, PB_3, Encoder::X0);
 
 // IR Sensor Objects/Consts
 Ticker interrupts;
