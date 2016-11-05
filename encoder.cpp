@@ -7,6 +7,9 @@ Encoder::Encoder(PinName a, PinName b, Encoding encoding, float divider)
 : a(a), b(b), divider(divider), steps(0)
 {
     switch(encoding) {
+        case X0:
+            this->a.register_edge(InterruptPin::BOTH, (void (*)(void *)) inc, (void*)this);
+            break;
         case X4:
             this->b.register_edge(InterruptPin::RISING, (void (*)(void *)) b_rise, (void*)this);
             this->b.register_edge(InterruptPin::FALLING, (void (*)(void *)) b_fall, (void*)this);
@@ -26,6 +29,11 @@ int Encoder::count()
 void Encoder::reset()
 {
     steps = 0;
+}
+
+void Encoder::inc(Encoder &e)
+{
+    e.steps++;
 }
 
 void Encoder::a_rise(Encoder &e)

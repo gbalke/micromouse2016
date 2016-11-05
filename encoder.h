@@ -5,7 +5,7 @@
 
 class Encoder {
     public:
-        enum Encoding {X1, X2, X4};
+        enum Encoding {X0, X1, X2, X4};
         Encoder(PinName a, PinName b, Encoding encoding, float divider = 1);
         int count();
         void reset();
@@ -17,4 +17,5 @@ class Encoder {
         static void a_fall(Encoder &e);
         static void b_rise(Encoder &e);
         static void b_fall(Encoder &e);
+        static void inc(Encoder &e);
 };

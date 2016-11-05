@@ -1,5 +1,5 @@
 #include "digital_input.h"
-#include "mbed-dev/hal/pinmap.h"
+#include "PinNames.h"
 
 struct gpio_port {
     uint32_t moder;

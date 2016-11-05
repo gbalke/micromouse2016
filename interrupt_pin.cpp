@@ -1,8 +1,7 @@
 // TODO: add entry to NVIC vector table
-#include "mbed-dev/hal/pinmap.h"
+#include "PinNames.h"
 #include "digital_input.h"
 #include "interrupt_pin.h"
-#include "mbed.h"
 
 static void (*volatile *const ivt)() = (void (**)()) 0x00000040;
 
@@ -51,7 +50,6 @@ static int exti15_10_pin = 0;
 
 static inline void main_handler(uint8_t pin)
 {
-    __disable_irq();
     int index = pin / 4;
     int offset = pin % 4;
     // Finds which actual pin was triggered
@@ -71,7 +69,6 @@ static inline void main_handler(uint8_t pin)
     }
     // Clears interrupt
     exti->pr |= (0x1 << pin);
-    __enable_irq();
 }
 
 // Handlers must have these exact names to overwrite vector table entries
@@ -97,6 +94,11 @@ void EXTI15_10_IRQHandler() { main_handler(exti15_10_pin); }
 InterruptPin::InterruptPin(PinName pin)
 : DigitalInput(pin)
 {
+}
+
+InterruptPin::~InterruptPin()
+{
+    unregister(BOTH);
 }
 
 void InterruptPin::register_edge(Edge edge, void (*callback)())

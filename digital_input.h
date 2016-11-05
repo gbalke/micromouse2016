@@ -1,5 +1,5 @@
 #pragma once
-#include "mbed-dev/hal/pinmap.h"
+#include "PinNames.h"
 
 class DigitalInput {
     public:
