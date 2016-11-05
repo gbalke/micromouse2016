@@ -1,5 +1,5 @@
 #include "digital_input.h"
-#include "mbed-dev/hal/pinmap.h"
+#include "PinNames.h"
 
 struct gpio_port {
     uint32_t moder;
@@ -13,19 +13,25 @@ struct gpio_port {
     uint32_t afrl;
     uint32_t afrh;
     // needed to properly align ports
-    char reserved[984];
+    uint32_t reserved[246];
 };
 
-gpio_port *const gpio_base = (gpio_port *const) 0x40020000;
+volatile gpio_port *const gpio_base = (gpio_port *const) 0x40020000;
 
 DigitalInput::DigitalInput(PinName pin)
 {
     port_offset = (pin & 0xF0) >> 4;
     this->pin = pin & 0x0F;
+    // Sets pin to input mode
     gpio_base[port_offset].moder &= ~(0b11 << 2 * this->pin);
 }
 
 bool DigitalInput::read()
 {
-    return gpio_base[port_offset].idr & (0x1 << this->pin);
+    return read_pin(port_offset, this->pin);
+}
+
+bool DigitalInput::read_pin(uint8_t port, uint8_t pin)
+{
+    return gpio_base[port].idr & (0x1 << pin);
 }
