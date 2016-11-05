@@ -10,6 +10,7 @@ void IRSensor::read()
 {
 	// Read IR intensity from IR receiver.
 	emitter_pin = 1;
+	wait(0.001);
 	lastRead = receiver_pin.read_u16();
 	emitter_pin = 0;
 }
