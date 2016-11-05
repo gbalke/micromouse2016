@@ -9,7 +9,7 @@ Serial serial(PA_9, PA_10);
 Motor left_motor(PB_6, PA_7, 3);
 Motor right_motor(PC_7, PB_10);
 
-Encoder left_encoder(PA_1, PC_4, Encoder::X0, sqrt(3));
+Encoder left_encoder(PA_1, PC_4, Encoder::X2, 1.72);
 Encoder right_encoder(PA_15, PB_3, Encoder::X0);
 
 // IR Sensor Objects/Consts
@@ -30,29 +30,39 @@ void ir_update();
 
 int main()
 {
-	
-	interrupts.attach(&ir_update, IR_READ_DELAY);
-
-    while(true) {
-        serial.printf("Left: %d\r\n", left_encoder.count());
-        serial.printf("Right: %d\r\n", right_encoder.count());
-		serial.printf("Left IRSensor: %d\r\n", left_irsensor.getValue());
-		serial.printf("Front Left IRSensor: %d\r\n", front_left_irsensor.getValue());
-		serial.printf("Front Right IRSensor: %d\r\n", front_right_irsensor.getValue());
-		serial.printf("Right IRSensor: %d\r\n", right_irsensor.getValue());
-		wait (0.5);
-    }
+    forward(100000);
+    /*while(true) {
+        serial.printf("%d %d\r\n", left_encoder.count(), right_encoder.count());
+    }*/
 }
 
 void forward(int cells)
 {
-    const float P = 0;//0.001;
-    while(left_encoder.count() < 500 * cells) {
+    const float P = 0.002;
+    const float I = 0;
+    const float D = 0;
+    const int CELL_LENGTH = 500;
+    const float SPEED = 0.1;
+    const float DELAY = 0.01;
+
+    int prev_error = 0;
+    int integral = 0;
+    left_encoder.reset();
+    right_encoder.reset();
+    while(left_encoder.count() < CELL_LENGTH * cells) {
         int error = left_encoder.count() - right_encoder.count();
-        float correction = P * error;
-        left_motor.set_speed(0.1 - correction);
-        right_motor.set_speed(0.1 + correction);
-        wait(0.1);
+        integral += error;
+        float correction = P * error + I * integral + D * (error - prev_error);
+        if(correction > SPEED) {
+            correction = SPEED;
+        } else if(correction < -1 * SPEED) {
+            correction = -1 * SPEED;
+        }
+        prev_error = error;
+        left_motor.set_speed(SPEED - correction);
+        right_motor.set_speed(SPEED + correction);
+        serial.printf("Error: %d Left: %f Right: %f\r\n", error, SPEED-correction, SPEED+correction);
+        wait(DELAY);
     }
     left_motor.set_speed(0);
     right_motor.set_speed(0);
