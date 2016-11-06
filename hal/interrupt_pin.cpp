@@ -151,19 +151,11 @@ void InterruptPin::enable_exti(Edge edge)
     // Enable the interrupt in NVIC
     switch(pin) {
         case 0:
-            nvic->iser[0] |= 0x1 << 6;
-            break;
         case 1:
-            nvic->iser[0] |= 0x1 << 7;
-            break;
         case 2:
-            nvic->iser[0] |= 0x1 << 8;
-            break;
         case 3:
-            nvic->iser[0] |= 0x1 << 9;
-            break;
         case 4:
-            nvic->iser[0] |= 0x1 << 10;
+            nvic->iser[0] |= 0x1 << (pin + 6);
             break;
         case 5:
         case 6:
@@ -196,19 +188,11 @@ void InterruptPin::unregister(Edge edge)
     // Disable interrupt in NVIC
     switch(pin) {
         case 0:
-            nvic->icer[0] |= 0x1 << 6;
-            break;
         case 1:
-            nvic->icer[0] |= 0x1 << 7;
-            break;
         case 2:
-            nvic->icer[0] |= 0x1 << 8;
-            break;
         case 3:
-            nvic->icer[0] |= 0x1 << 9;
-            break;
         case 4:
-            nvic->icer[0] |= 0x1 << 10;
+            nvic->icer[0] |= 0x1 << (pin + 6);
             break;
         case 5:
         case 6:
