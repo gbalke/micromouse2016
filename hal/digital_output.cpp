@@ -4,11 +4,9 @@
 
 DigitalOutput::DigitalOutput(PinName pin)
 {
-    port_offset = (pin & 0xF0) >> 4;
-    this->pin = pin & 0x0F;
-    // Sets pin to output mode
-    gpio_base[port_offset].moder &= ~(0b11 << 2 * this->pin);
-    gpio_base[port_offset].moder |= (0b01 << 2 * this->pin);
+    port_offset = PORT_OFFSET(pin);
+    this->pin = PIN_NUMBER(pin);
+    gpio_set_mode(port_offset, this->pin, OUTPUT);
 }
 
 void DigitalOutput::write(bool value)

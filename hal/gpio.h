@@ -17,3 +17,19 @@ struct gpio_port {
 };
 
 static volatile gpio_port *const gpio_base = (gpio_port *const) 0x40020000;
+
+#define PORT_OFFSET(pin) (((pin) & 0xF0) >> 4)
+#define PIN_NUMBER(pin) ((pin) & 0x0F)
+
+enum GpioMode {
+    INPUT = 0,
+    OUTPUT,
+    ALTERNATE_FUNCTION,
+    ANALOG
+};
+
+static inline void gpio_set_mode(uint8_t port, uint8_t pin, GpioMode mode)
+{
+    gpio_base[port].moder &= ~(0b11 << 2 * pin);
+    gpio_base[port].moder |= (mode << 2 * pin);
+}

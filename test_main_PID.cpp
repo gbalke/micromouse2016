@@ -12,7 +12,6 @@ Motor right_motor(PC_7, PB_10);
 Encoder left_encoder(PA_1, PC_4, Encoder::X2, 1.72);
 Encoder right_encoder(PA_15, PB_3, Encoder::X0);
 
-// IR Sensor Objects/Consts
 Ticker interrupts;
 
 IRSensor left_irsensor(PC_0, PB_7);
@@ -20,9 +19,7 @@ IRSensor front_left_irsensor(PC_1, PB_0);
 IRSensor front_right_irsensor(PA_4, PC_11);
 IRSensor right_irsensor(PA_0, PC_10);
 
-const float IR_READ_DELAY = 0.5;
-// End IR Sensor Stuff
-
+const float IR_READ_DELAY = 0.1;
 
 void forward(int);
 void right_turn(int);
@@ -30,10 +27,8 @@ void ir_update();
 
 int main()
 {
+	interrupts.attach(&ir_update, IR_READ_DELAY);
     forward(100000);
-    /*while(true) {
-        serial.printf("%d %d\r\n", left_encoder.count(), right_encoder.count());
-    }*/
 }
 
 void forward(int cells)
@@ -43,14 +38,27 @@ void forward(int cells)
     const float D = 0;
     const int CELL_LENGTH = 500;
     const float SPEED = 0.1;
-    const float DELAY = 0.01;
+    const float DELAY = 0.005;
+    const int LEFT_STOP = 950;
+    const int RIGHT_STOP = 1140;
+    // Divisor is to ignore small errors between left & right, multiplier is for error weighting
+    const int IR_DIVISOR = 100;
+    const int IR_MULTIPLIER = 2;
 
     int prev_error = 0;
     int integral = 0;
     left_encoder.reset();
     right_encoder.reset();
     while(left_encoder.count() < CELL_LENGTH * cells) {
+        if (front_left_irsensor.getValue() >= LEFT_STOP ||
+                front_right_irsensor.getValue() >= RIGHT_STOP) {
+            left_motor.set_speed(0);
+            right_motor.set_speed(0);
+            continue;
+        }
         int error = left_encoder.count() - right_encoder.count();
+        error += IR_MULTIPLIER * 
+            ((right_irsensor.getValue() - left_irsensor.getValue()) / IR_DIVISOR);
         integral += error;
         float correction = P * error + I * integral + D * (error - prev_error);
         if(correction > SPEED) {
@@ -61,7 +69,6 @@ void forward(int cells)
         prev_error = error;
         left_motor.set_speed(SPEED - correction);
         right_motor.set_speed(SPEED + correction);
-        serial.printf("Error: %d Left: %f Right: %f\r\n", error, SPEED-correction, SPEED+correction);
         wait(DELAY);
     }
     left_motor.set_speed(0);
@@ -84,7 +91,6 @@ void right_turn(int times)
 
 void ir_update()
 {
-	serial.printf("firing");
 	left_irsensor.read();
 	front_left_irsensor.read();
 	front_right_irsensor.read();

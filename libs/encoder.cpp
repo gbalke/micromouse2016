@@ -1,4 +1,4 @@
-#include "mbed-dev/hal/pinmap.h"
+#include "PinNames.h"
 #include "encoder.h"
 #include "digital_input.h"
 #include "interrupt_pin.h"

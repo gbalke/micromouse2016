@@ -20,7 +20,7 @@ IRSensor front_left_irsensor(PC_1, PB_0);
 IRSensor front_right_irsensor(PA_4, PC_11);
 IRSensor right_irsensor(PA_0, PC_10);
 
-const float IR_READ_DELAY = 0.5;
+const float IR_READ_DELAY = 0.1;
 // End IR Sensor Stuff
 
 
@@ -34,8 +34,6 @@ int main()
 	interrupts.attach(&ir_update, IR_READ_DELAY);
 
     while(true) {
-        serial.printf("Left: %d\r\n", left_encoder.count());
-        serial.printf("Right: %d\r\n", right_encoder.count());
 		serial.printf("Left IRSensor: %d\r\n", left_irsensor.getValue());
 		serial.printf("Front Left IRSensor: %d\r\n", front_left_irsensor.getValue());
 		serial.printf("Front Right IRSensor: %d\r\n", front_right_irsensor.getValue());
@@ -74,7 +72,6 @@ void right_turn(int times)
 
 void ir_update()
 {
-	serial.printf("firing");
 	left_irsensor.read();
 	front_left_irsensor.read();
 	front_right_irsensor.read();

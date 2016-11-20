@@ -4,10 +4,10 @@
 
 DigitalInput::DigitalInput(PinName pin)
 {
-    port_offset = (pin & 0xF0) >> 4;
-    this->pin = pin & 0x0F;
+    port_offset = PORT_OFFSET(pin);
+    this->pin = PIN_NUMBER(pin);
     // Sets pin to input mode
-    gpio_base[port_offset].moder &= ~(0b11 << 2 * this->pin);
+    gpio_set_mode(port_offset, this->pin, INPUT);
 }
 
 bool DigitalInput::read()

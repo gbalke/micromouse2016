@@ -11,8 +11,9 @@ void IRSensor::read()
 {
 	// Read IR intensity from IR receiver.
 	emitter_pin.write(1);
-	wait(0.001);
-	lastRead = receiver_pin.read_u16();
+    wait(0.001);
+    // Divide by 16 since we only have a 12 bit ADC
+	lastRead = receiver_pin.read_u16() / 16;
 	emitter_pin.write(0);
 }
 
