@@ -19,46 +19,75 @@ IRSensor front_left_irsensor(PC_1, PB_0);
 IRSensor front_right_irsensor(PA_4, PC_11);
 IRSensor right_irsensor(PA_0, PC_10);
 
-const float IR_READ_DELAY = 0.1;
+const int SIDE_BIAS = 0;
 
-void forward(int);
-void right_turn(int);
+enum Direction {
+    LEFT,
+    RIGHT
+};
+
+void forward();
+void backward();
+void turn(Direction);
 void ir_update();
 
 int main()
 {
+    const float IR_READ_DELAY = 0.1;
 	interrupts.attach(&ir_update, IR_READ_DELAY);
-    forward(100000);
+    while(true) {
+        forward();
+        backward();
+        if(left_irsensor.getValue() < right_irsensor.getValue()) {
+            turn(LEFT);
+        } else {
+            turn(RIGHT);
+        }
+    }
 }
 
-void forward(int cells)
+inline bool is_wall()
+{
+    const int LEFT_STOP = 1050;
+    const int RIGHT_STOP = 1250;
+    return front_left_irsensor.getValue() >= LEFT_STOP || front_right_irsensor.getValue() >= RIGHT_STOP;
+}
+
+inline bool is_crashed()
+{
+    return front_left_irsensor.getValue() > 3800 || front_right_irsensor.getValue() > 3800;
+}
+
+void backward()
+{
+    const float BACKWARD_SPEED = 0.05;
+    while(is_crashed()) {
+        left_motor.set_speed(-1*BACKWARD_SPEED);
+        right_motor.set_speed(-1*BACKWARD_SPEED);
+    }
+    left_motor.set_speed(0);
+    right_motor.set_speed(0);
+    wait(0.1);
+}
+
+void forward()
 {
     const float P = 0.002;
     const float I = 0;
     const float D = 0;
-    const int CELL_LENGTH = 500;
     const float SPEED = 0.1;
+    const int CELL_LENGTH = 500;
     const float DELAY = 0.005;
-    const int LEFT_STOP = 950;
-    const int RIGHT_STOP = 1140;
-    // Divisor is to ignore small errors between left & right, multiplier is for error weighting
-    const int IR_DIVISOR = 100;
-    const int IR_MULTIPLIER = 2;
+    const float IR_MULTIPLIER = 0.025;
 
     int prev_error = 0;
     int integral = 0;
+
     left_encoder.reset();
     right_encoder.reset();
-    while(left_encoder.count() < CELL_LENGTH * cells) {
-        if (front_left_irsensor.getValue() >= LEFT_STOP ||
-                front_right_irsensor.getValue() >= RIGHT_STOP) {
-            left_motor.set_speed(0);
-            right_motor.set_speed(0);
-            continue;
-        }
+    while(!is_wall()) {
         int error = left_encoder.count() - right_encoder.count();
-        error += IR_MULTIPLIER * 
-            ((right_irsensor.getValue() - left_irsensor.getValue()) / IR_DIVISOR);
+        error += IR_MULTIPLIER * (right_irsensor.getValue() - left_irsensor.getValue() - SIDE_BIAS);
         integral += error;
         float correction = P * error + I * integral + D * (error - prev_error);
         if(correction > SPEED) {
@@ -76,17 +105,24 @@ void forward(int cells)
     wait(0.1);
 }
 
-void right_turn(int times)
+void turn(Direction d)
 {
-    int dir = (times > 0) ? 1 : -1;
+    const float TURN_SPEED = 0.03;
+    const float RIGHT_SPEED = 0.05;
+    const int TURN_COUNT = 134;
+    int dir = (d == RIGHT) ? 1 : -1;
     left_encoder.reset();
     right_encoder.reset();
-    left_motor.set_speed(dir * 0.05);
-    right_motor.set_speed(dir * -0.05);
-    while(abs(left_encoder.count() - right_encoder.count()) < 200 * abs(times));
+    left_motor.set_speed(dir * TURN_SPEED);
+    right_motor.set_speed(dir * -1*RIGHT_SPEED);
+    while(is_wall()) {
+        if(is_crashed()) {
+            break;
+        }
+    }
     left_motor.set_speed(0);
     right_motor.set_speed(0);
-    wait(0.5);
+    wait(0.1);
 }
 
 void ir_update()
