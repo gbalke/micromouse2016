@@ -6,6 +6,7 @@ DigitalOutput::DigitalOutput(PinName pin)
 {
     port_offset = PORT_OFFSET(pin);
     this->pin = PIN_NUMBER(pin);
+    gpio_enable_clock(port_offset);
     gpio_set_mode(port_offset, this->pin, OUTPUT);
 }
 

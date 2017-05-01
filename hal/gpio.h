@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "rcc.h"
 
 struct gpio_port {
     uint32_t moder;
@@ -27,6 +28,11 @@ enum GpioMode {
     ALTERNATE_FUNCTION,
     ANALOG
 };
+
+static inline void gpio_enable_clock(uint8_t port)
+{
+    rcc->ahb1enr |= 1 << port;
+}
 
 static inline void gpio_set_mode(uint8_t port, uint8_t pin, GpioMode mode)
 {
