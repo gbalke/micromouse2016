@@ -1,5 +1,5 @@
 #pragma once
-#include <cstdint>
+#include <stdint.h>
 
 struct rcc_register {
     uint32_t cr;

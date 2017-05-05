@@ -2,11 +2,11 @@
 # see http://mbed.org/handbook/Exporting-to-GCC-ARM-Embedded
 
 # cross-platform directory manipulation
-BUILD_FILE = mouse
+BUILD_FILE = encoder
 PROJECT = micromouse
 LIBS = libs/
 HAL = hal/
-OBJS = $(BUILD_FILE).o $(LIBS)motor.o $(LIBS)encoder.o $(HAL)digital_input.o $(LIBS)irsensor.o $(HAL)interrupt_pin.o $(HAL)digital_output.o
+OBJS = $(BUILD_FILE).o $(LIBS)motor.o $(LIBS)encoder.o $(HAL)digital_input.o $(LIBS)irsensor.o $(HAL)interrupt_pin.o $(HAL)digital_output.o $(HAL)gpio.o
 
 ifeq ($(shell echo $$OS),$$OS)
     MAKEDIR = if not exist "$(1)" mkdir "$(1)"

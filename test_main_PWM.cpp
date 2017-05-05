@@ -1,17 +1,8 @@
-#include <cmath>
 #include "mbed.h"
-#include "motor.h"
-#include "encoder.h"
-
 #include "gpio.h"
+#include "rcc.h"
 
-Serial serial(PA_9, PA_10);
-
-Motor left_motor(PB_6, PA_7, 3);
-Motor right_motor(PC_7, PB_10);
-
-Encoder left_encoder(PA_1, PC_4, Encoder::X2, 1.72);
-Encoder right_encoder(PA_15, PB_3, Encoder::X0);
+Serial serial(PA_2, PA_3);
 
 struct timer_register {
     uint32_t cr1;
@@ -51,6 +42,8 @@ static volatile timer_register *const tim9_11_base = (timer_register *const) 0x4
 #define OC1M 4
 #define OC1PE 3
 #define OC1FE 2
+#define OC2M 12
+#define OC4M 12
 
 // Channel Input Constants (+8 to reach CH2)
 #define IC1F 4
@@ -58,14 +51,18 @@ static volatile timer_register *const tim9_11_base = (timer_register *const) 0x4
 
 // Channel Mode Constants (+8 to reach CH2)
 #define CC1S 0
+#define CC2S 8
+#define CC4S 8
 
 // CCER Constants (+4 for next channel)
 #define CC1E 0
 #define CC1P 1
 #define CC1NP 3
+#define CC2E 4
+#define CC4E 12
 
 // PWM Constants
-#define PERIOD 255
+#define PERIOD 1000
 
 enum ChannelMode {
     COMPARE = 0,
@@ -86,28 +83,33 @@ enum ChannelOutputMode {
     PWM2
 };
 
+#define TIM3EN 1
+#define TIM4EN 2
+
 int main()
 {
-    PinName pwm = PA_6;
+    PinName pwm = PB_9;
     uint8_t port_offset = PORT_OFFSET(pwm);
     uint8_t pin = PIN_NUMBER(pwm);
 
-    tim2_5_base[1].arr = PERIOD; // Sets PWM Period
-    tim2_5_base[1].egr |= 1 << UG; // Triggers channel (needed for preload registers)
-    tim2_5_base[1].cr1 |= 1 << CEN; // Enables Timer
+    rcc->apb1enr |= 1 << TIM4EN;
+    tim2_5_base[2].arr = PERIOD; // Sets PWM Period
+    tim2_5_base[2].egr |= 1 << UG; // Triggers channel (needed for preload registers)
+    tim2_5_base[2].cr1 |= 1 << CEN; // Enables Timer
 
-    tim2_5_base[1].ccmr1 |= COMPARE << CC1S; // Sets channel to output
-    tim2_5_base[1].ccmr1 |= PWM1 << OC1M; // sets PWM output
-    tim2_5_base[1].ccr1 = 127; // Sets duty cycle
-    tim2_5_base[1].ccer |= 1 << CC1E; // Enables Channel
+    tim2_5_base[2].ccmr2 |= COMPARE << CC4S; // Sets channel to output
+    tim2_5_base[2].ccmr2 |= PWM1 << OC4M; // sets PWM output
+    tim2_5_base[2].ccr4 = 500; // Sets duty cycle
+    tim2_5_base[2].ccer |= 1 << CC4E; // Enables Channel
 
 
+    gpio_enable_clock(port_offset);
     gpio_set_mode(port_offset, pin, ALTERNATE_FUNCTION);
-    gpio_base[port_offset].afrl &= ~(0xF << 4 * pin);
-    gpio_base[port_offset].afrl |= 2 << 4 * pin; // TIM3_CH1
+    gpio_base[port_offset].afrh &= ~(0xF << 4 * (pin-8));
+    gpio_base[port_offset].afrh |= 2 << 4 * (pin-8);
 
     while(true) {
-        serial.printf("CNT: %d\r\n", tim2_5_base[1].cnt);
+        serial.printf("CNT: %d\r\n", tim2_5_base[2].cnt);
         serial.printf("Output: %d\r\n", (gpio_base[port_offset].idr >> pin) & 1);
     }
 }
