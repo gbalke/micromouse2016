@@ -1,9 +1,9 @@
 #include "PinNames.h"
-#include "encoder.h"
+#include "interrupt_encoder.h"
 #include "digital_input.h"
 #include "interrupt_pin.h"
 
-Encoder::Encoder(PinName a, PinName b, Encoding encoding, float divider)
+InterruptEncoder::InterruptEncoder(PinName a, PinName b, Encoding encoding, float divider)
 : a(a), b(b), divider(divider), steps(0)
 {
     switch(encoding) {
@@ -21,22 +21,22 @@ Encoder::Encoder(PinName a, PinName b, Encoding encoding, float divider)
     }
 }
 
-int Encoder::count()
+int InterruptEncoder::count()
 {
     return steps / divider;
 }
 
-void Encoder::reset()
+void InterruptEncoder::reset()
 {
     steps = 0;
 }
 
-void Encoder::inc(Encoder &e)
+void InterruptEncoder::inc(InterruptEncoder &e)
 {
     e.steps++;
 }
 
-void Encoder::a_rise(Encoder &e)
+void InterruptEncoder::a_rise(InterruptEncoder &e)
 {
     if(e.b.read()) {
         e.steps++;
@@ -45,7 +45,7 @@ void Encoder::a_rise(Encoder &e)
     }
 }
 
-void Encoder::a_fall(Encoder &e)
+void InterruptEncoder::a_fall(InterruptEncoder &e)
 {
     if(e.b.read()) {
         e.steps--;
@@ -54,7 +54,7 @@ void Encoder::a_fall(Encoder &e)
     }
 }
 
-void Encoder::b_rise(Encoder &e)
+void InterruptEncoder::b_rise(InterruptEncoder &e)
 {
     if(e.a.read()) {
         e.steps--;
@@ -63,7 +63,7 @@ void Encoder::b_rise(Encoder &e)
     }
 }
 
-void Encoder::b_fall(Encoder &e)
+void InterruptEncoder::b_fall(InterruptEncoder &e)
 {
     if(e.a.read()) {
         e.steps++;

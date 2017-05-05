@@ -1,7 +1,7 @@
 #include <cmath>
 #include "mbed.h"
 #include "motor.h"
-#include "encoder.h"
+#include "interrupt_encoder.h"
 #include "irsensor.h"
 
 Serial serial(PA_9, PA_10);
@@ -9,8 +9,8 @@ Serial serial(PA_9, PA_10);
 Motor left_motor(PB_6, PA_7, 3);
 Motor right_motor(PC_7, PB_10);
 
-Encoder left_encoder(PA_1, PC_4, Encoder::X2, 1.72);
-Encoder right_encoder(PA_15, PB_3, Encoder::X0);
+InterruptEncoder left_encoder(PA_1, PC_4, InterruptEncoder::X2, 1.72);
+InterruptEncoder right_encoder(PA_15, PB_3, InterruptEncoder::X0);
 
 Ticker interrupts;
 

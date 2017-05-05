@@ -1,7 +1,7 @@
 #include <cmath>
 #include "mbed.h"
 #include "motor.h"
-#include "encoder.h"
+#include "interrupt_encoder.h"
 #include "irsensor.h"
 #include "hal/gpio.h"
 

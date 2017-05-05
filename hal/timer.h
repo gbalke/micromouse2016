@@ -60,7 +60,7 @@ static volatile timer_register *const tim9_11_base = (timer_register *const) 0x4
 #define CC2E 4
 #define CC4E 12
 
-enum Timer {
+enum TimerModule {
     TIMER1,
     TIMER2,
     TIMER3,

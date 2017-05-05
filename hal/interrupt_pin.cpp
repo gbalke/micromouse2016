@@ -1,4 +1,3 @@
-// TODO: add entry to NVIC vector table
 #include "PinNames.h"
 #include "digital_input.h"
 #include "interrupt_pin.h"
