@@ -1,5 +1,15 @@
 #include "gyro.h"
 
+#define CHIP_ID 0x00
+#define VALID_ID 0xF
+#define BANDWIDTH 0x10
+#define LOWPASS 0x7
+#define FAST_OFFSET_CALIBRATION 0x32
+#define CALIBRATE_Z 0xFC
+#define Z_CALIBRATED 0xF4
+#define Z_LSB 0x06
+#define Z_MSB 0x07
+
 Gyro::Gyro(PinName sclk, PinName mosi, PinName miso, PinName ss, uint32_t frequency)
 : spi(mosi, miso, sclk), ss(ss)
 {
@@ -8,29 +18,29 @@ Gyro::Gyro(PinName sclk, PinName mosi, PinName miso, PinName ss, uint32_t freque
     // make sure gyro is initialized
     uint16_t chip_id;
     do {
-        chip_id = read_reg(0x00);
-    } while(chip_id != 0xF);
+        chip_id = read_reg(CHIP_ID);
+    } while(chip_id != VALID_ID);
     // Bandwidth
     uint8_t bw;
     do {
-        write_reg(0x10, 0x7);
-        bw = read_reg(0x10);
-    } while((bw & 0xF) != 0x7);
+        write_reg(BANDWIDTH, LOWPASS);
+        bw = read_reg(BANDWIDTH);
+    } while((bw & 0xF) != LOWPASS);
 }
 
 void Gyro::calibrate()
 {
     uint8_t fast_offset;
     do {
-        write_reg(0x32, 0xFC);
-        fast_offset = read_reg(0x32);
-    } while(fast_offset != 0xF4);
+        write_reg(FAST_OFFSET_CALIBRATION, CALIBRATE_Z);
+        fast_offset = read_reg(FAST_OFFSET_CALIBRATION);
+    } while(fast_offset != Z_CALIBRATED);
 }
 
 int16_t Gyro::read()
 {
-    uint8_t lsb = read_reg(0x06);
-    uint8_t msb = read_reg(0x07);
+    uint8_t lsb = read_reg(Z_LSB);
+    uint8_t msb = read_reg(Z_MSB);
     int16_t rate = (msb << 8) | lsb;
     return rate;
 }
