@@ -32,6 +32,7 @@ TimerEncoder::TimerEncoder(TimerModule t, PinName a, PinName b)
             break;
     }
     timer->arr = ~0;
+    timer->cnt = 0;
     timer->ccmr1 |= CAPTURE << CC1S;
     timer->ccmr1 |= CAPTURE << CC2S;
 
