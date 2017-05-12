@@ -30,15 +30,26 @@ DigitalOutput blue(PB_13);
 
 Gyro gyro(PC_10, PC_12, PC_11, PA_4, 1e7);
 
+float battery_level()
+{
+    AnalogIn voltage_divider(PC_5);
+    return (8.3 / 54700) * voltage_divider.read_u16();
+}
+
 int main()
 {
     motor_timer.set_period(255);
     motor_timer.enable(true);
     gyro.calibrate();
     while(true) {
+        if(battery_level() < 7.4) {
+            red.write(1);
+        } else {
+            red.write(0);
+        }
         if(!sw1.read()) {
-            left.set_speed(10);
-            right.set_speed(10);
+            left.set_speed(30);
+            right.set_speed(30);
         } else {
             left.set_speed(0);
             right.set_speed(0);
