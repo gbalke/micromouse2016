@@ -1,13 +1,11 @@
 #pragma once
-#include "mbed.h"
+#include "timer.h"
 
 class Motor {
     public:
-        Motor(PinName forward, PinName backward, float multiplier = 1);
-        void set_speed(float speed);
-        float get_speed();
+        Motor(HAL::Timer::Channel forward, HAL::Timer::Channel backward);
+        void set_speed(int speed);
     private:
-        PwmOut forward;
-        PwmOut backward;
-        float multiplier;
+        HAL::Timer::Channel forward;
+        HAL::Timer::Channel backward;
 };

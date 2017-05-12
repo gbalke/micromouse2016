@@ -3,7 +3,7 @@
 #include "digital_input.h"
 #include "interrupt_pin.h"
 
-InterruptEncoder::InterruptEncoder(PinName a, PinName b, Encoding encoding, float divider)
+InterruptEncoder::InterruptEncoder(Pin a, Pin b, Encoding encoding, float divider)
 : a(a), b(b), divider(divider), steps(0)
 {
     switch(encoding) {

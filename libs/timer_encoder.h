@@ -4,7 +4,7 @@
 
 class TimerEncoder {
     public:
-        TimerEncoder(HAL::Timer::TimerModule t, Pin a, Pin b);
+        TimerEncoder(HAL::Timer::TimerNumber t, Pin a, Pin b);
         int count();
         void reset();
     private:

@@ -6,7 +6,7 @@
 class InterruptEncoder {
     public:
         enum Encoding {X0, X1, X2, X4};
-        InterruptEncoder(PinName a, PinName b, Encoding encoding, float divider = 1);
+        InterruptEncoder(Pin a, Pin b, Encoding encoding, float divider = 1);
         int count();
         void reset();
     private:

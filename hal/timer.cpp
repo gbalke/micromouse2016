@@ -1,10 +1,11 @@
 #include "pin.h"
 #include "timer.h"
 #include "rcc.h"
+#include "alternate_function.h"
 
 namespace HAL {
 
-Timer::Timer(TimerModule timer, ClockSource source)
+Timer::Timer(TimerNumber timer, ClockSource source)
 {
     if(timer == TIMER1) {
         rcc->apb2enr |= 1 << TIM1EN;
@@ -14,24 +15,15 @@ Timer::Timer(TimerModule timer, ClockSource source)
             this->timer = tim2_5_base + timer - 2;
     }
     this->timer->smcr |= source << SMS;
-}
-
-void Timer::set_channel_mode(Channel channel, ChannelMode mode)
-{
-    const int CHANNEL_SPACING = 8;
-    if(channel <= CH2) {
-        timer->ccmr1 |= mode << CHANNEL_SPACING * channel;
+    if(timer == TIMER1 || timer == TIMER2) {
+        af = AF1;
     } else {
-        timer->ccmr2 |= mode << CHANNEL_SPACING * (channel - CH3);
+        af = AF2;
     }
 }
 
-void Timer::enable_channel(Channel channel, bool enabled)
-{
-    timer->ccer |= enabled << 4 * channel;
-}
 
-void Timer::enable_timer(bool enabled)
+void Timer::enable(bool enabled)
 {
     timer->cr1 |= enabled << CEN;
 }
