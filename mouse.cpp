@@ -17,6 +17,8 @@ Motor left(lfwd, lbwd);
 Motor right(rfwd, rbwd);
 
 TimerEncoder left_encoder(HAL::Timer::TIMER2, PA_1, PA_0);
+//TimerEncoder right_encoder(HAL::Timer::TIMER5, PA_15, PB_3);
+InterruptEncoder right_encoder(PB_3, PA_15, InterruptEncoder::X4);
 
 DigitalInput sw1(PB_12);
 DigitalInput sw2(PB_1);
@@ -41,6 +43,5 @@ int main()
             left.set_speed(0);
             right.set_speed(0);
         }
-        serial.printf("Encoder: %d\r\n", left_encoder.count());
     }
 }
