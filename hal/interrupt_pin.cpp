@@ -1,4 +1,4 @@
-#include "PinNames.h"
+#include "pin.h"
 #include "digital_input.h"
 #include "interrupt_pin.h"
 
@@ -90,7 +90,7 @@ void EXTI15_10_IRQHandler() { main_handler(exti15_10_pin); }
 
 }
 
-InterruptPin::InterruptPin(PinName pin)
+InterruptPin::InterruptPin(Pin pin)
 : DigitalInput(pin)
 {
 }

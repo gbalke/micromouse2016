@@ -1,9 +1,9 @@
 #pragma once
-#include "PinNames.h"
+#include "pin.h"
 
 class DigitalOutput {
     public:
-        DigitalOutput(PinName pin);
+        DigitalOutput(Pin pin);
         void write(bool value);
         static void write_pin(uint8_t port, uint8_t pin, bool value);
     protected:

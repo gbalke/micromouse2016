@@ -1,8 +1,8 @@
 #include "gpio.h"
 #include "digital_output.h"
-#include "PinNames.h"
+#include "pin.h"
 
-DigitalOutput::DigitalOutput(PinName pin)
+DigitalOutput::DigitalOutput(Pin pin)
 {
     port_offset = PORT_OFFSET(pin);
     this->pin = PIN_NUMBER(pin);

@@ -1,9 +1,10 @@
 #pragma once
-#include "PinNames.h"
+#include "inttypes.h"
+#include "pin.h"
 
 class DigitalInput {
     public:
-        DigitalInput(PinName pin);
+        DigitalInput(Pin pin);
         bool read();
         static bool read_pin(uint8_t port, uint8_t pin);
     protected:

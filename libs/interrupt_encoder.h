@@ -1,5 +1,5 @@
 #pragma once
-#include "PinNames.h"
+#include "pin.h"
 #include "digital_input.h"
 #include "interrupt_pin.h"
 

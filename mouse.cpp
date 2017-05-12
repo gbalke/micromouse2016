@@ -1,17 +1,17 @@
-#include "mbed.h"
-
 #include "motor.h"
 #include "timer_encoder.h"
 #include "interrupt_encoder.h"
 #include "irsensor.h"
 #include "gyro.h"
 
+#include "mbed.h"
+
 Serial serial(PA_2, PA_3);
 
 Motor left(PC_6, PC_7);
 Motor right(PC_9, PC_8);
 
-TimerEncoder left_encoder(TIMER2, PA_1, PA_0);
+TimerEncoder left_encoder(HAL::Timer::TIMER2, PA_1, PA_0);
 
 DigitalInput sw1(PB_12);
 DigitalInput sw2(PB_1);
@@ -34,6 +34,6 @@ int main()
             left.set_speed(0);
             right.set_speed(0);
         }
-        serial.printf("Gyro: %d\r\n", gyro.read());
+        serial.printf("Encoder: %d\r\n", left_encoder.count());
     }
 }
