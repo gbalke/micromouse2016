@@ -5,7 +5,7 @@
 using namespace HAL;
 
 TimerEncoder::TimerEncoder(Timer::TimerNumber t, Pin a, Pin b)
-: timer(t, Timer::ENCODER_AB)
+: timer(t, Timer::ENCODER_A)
 {
     timer.set_period(~0);
     timer.set_count(0);
