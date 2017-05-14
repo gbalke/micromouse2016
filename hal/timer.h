@@ -39,7 +39,8 @@ class Timer {
             TIMER2,
             TIMER3,
             TIMER4,
-            TIMER5
+            TIMER5,
+			TIMER6
         };
         enum ChannelNumber {
             CH1 = 0, CH2, CH3, CH4

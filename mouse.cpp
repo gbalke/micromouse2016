@@ -7,7 +7,14 @@
 
 #include "mbed.h"
 
+#define BTSERIAL
+
+#ifndef BTSERIAL
 Serial serial(PA_2, PA_3);
+#endif
+#ifdef  BTSERIAL
+Serial serial(PA_9, PA_10);
+#endif
 
 HAL::Timer motor_timer(HAL::Timer::TIMER3, HAL::Timer::CPU);
 HAL::Timer::Channel lbwd(motor_timer, HAL::Timer::CH1, HAL::Timer::Channel::COMPARE_PWM1, PC_6);
@@ -24,9 +31,11 @@ DigitalInput sw1(PB_12);
 DigitalInput sw2(PB_1);
 DigitalInput sw3(PB_0);
 DigitalInput sw4(PA_7);
-DigitalOutput red(PB_15);
-DigitalOutput green(PB_14);
-DigitalOutput blue(PB_13);
+
+HAL::Timer LED_Timer(HAL::Timer::TIMER6, HAL::Timer::CPU);
+HAL::Timer::Channel red  (LED_Timer, HAL::Timer::CH1, HAL::Timer::Channel::COMPARE_PWM1, PC_15);
+HAL::Timer::Channel green(LED_Timer, HAL::Timer::CH2, HAL::Timer::Channel::COMPARE_PWM1, PC_14);
+HAL::Timer::Channel blue (LED_Timer, HAL::Timer::CH3, HAL::Timer::Channel::COMPARE_PWM1, PC_13);
 
 IRSensor left_irsensor(PC_3, PB_6);
 IRSensor right_irsensor(PC_0, PB_8);
@@ -36,7 +45,7 @@ const float IR_READ_DELAY = 0.1;
 
 Ticker interrupts;
 
-Gyro gyro(PC_10, PC_12, PC_11, PA_4, 1e7);
+//Gyro gyro(PC_10, PC_12, PC_11, PA_4, 1e7);
 
 Pid controller(0, 0, 0);
 
@@ -48,10 +57,17 @@ int main()
 	interrupts.attach(&ir_update, IR_READ_DELAY);
     motor_timer.set_period(511);
     motor_timer.enable(true);
-    gyro.calibrate();
+    //gyro.calibrate();
+	green.write(0);
+	red.write(0);	
+	green.enable(true);
+	red.enable(true);
+
+	green.write(10);
+
     while(true) {
         if(battery_level() < 7.4) {
-            red.write(1);
+            red.write(20);
         } else {
             red.write(0);
         }
@@ -73,8 +89,8 @@ int main()
             left.set_speed(0);
             right.set_speed(0);
         }
-        serial.printf("l %f\r\n", (left_irsensor.getValue()-3952.176)/-331.264);
-        serial.printf("r %f\r\n", (right_irsensor.getValue()-3719.154)/-335.538);
+		serial.printf("l %d\r\n", left_irsensor.getValue());
+        serial.printf("r %d\r\n", right_irsensor.getValue());
         serial.printf("fl %d\r\n", front_left_irsensor.getValue());
         serial.printf("fr %d\r\n", front_right_irsensor.getValue());
         wait(1);
