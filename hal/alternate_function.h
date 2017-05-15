@@ -6,6 +6,8 @@ enum AlternateFunction {
     AF0 = 0, AF1, AF2, AF3, AF4, AF5, AF6, AF7, AF8, AF9, AF10, AF11, AF12, AF13, AF14, AF15
 };
 
+// Sets pin to the selected alternate function number. Refer to p.47 of the datasheet for which
+// module corresponds to each alternate function number.
 static inline void alternate_function_set_mode(Pin pin, AlternateFunction af)
 {
     uint8_t port = PORT_OFFSET(pin);

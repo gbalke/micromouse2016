@@ -46,6 +46,8 @@ Pid controller(0, 0, 0);
 
 float battery_level();
 
+float ir_distance(float reading, float scale, float time_constant, float midpoint, float max);
+
 int main()
 {
     motor_timer.set_period(511);
@@ -75,8 +77,10 @@ int main()
             left.set_speed(0);
             right.set_speed(0);
         }
-        serial.printf("l %d\r\n", left_irsensor.read());
-        serial.printf("r %d\r\n", right_irsensor.read());
+        int left = left_irsensor.read();
+        int right = right_irsensor.read();
+        serial.printf("l %f\r\n", ir_distance(left, -1925.5, 0.4, 7.7, 4073.8));
+        serial.printf("r %f\r\n", ir_distance(right, -2298.3, 0.4, 6.5, 4129.8));
         serial.printf("fl %d\r\n", front_left_irsensor.read());
         serial.printf("fr %d\r\n", front_right_irsensor.read());
         wait(1);
@@ -87,4 +91,9 @@ float battery_level()
 {
     AnalogIn voltage_divider(PC_5);
     return (8.3 / 54700) * voltage_divider.read_u16();
+}
+
+float ir_distance(float reading, float scale, float time_constant, float midpoint, float max)
+{
+    return midpoint - log(scale / (reading - max) - 1) / time_constant;
 }
