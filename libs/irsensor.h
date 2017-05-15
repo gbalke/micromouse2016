@@ -14,8 +14,7 @@ class IRSensor
 	public:
 		IRSensor (PinName rp, PinName ep);
 
-		void read();
-		uint16_t getValue();
+		uint16_t read();
 };
 
 #endif

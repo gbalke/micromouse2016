@@ -4,17 +4,16 @@
 #include "irsensor.h"
 #include "gyro.h"
 #include "pid.h"
+#include "digital_output.h"
 
 #include "mbed.h"
-
-#define BTSERIAL
 
 #ifndef BTSERIAL
 Serial serial(PA_2, PA_3);
 #endif
-#ifdef  BTSERIAL
+#ifdef BTSERIAL
 Serial serial(PA_9, PA_10);
-#endif
+#endif 
 
 HAL::Timer motor_timer(HAL::Timer::TIMER3, HAL::Timer::CPU);
 HAL::Timer::Channel lbwd(motor_timer, HAL::Timer::CH1, HAL::Timer::Channel::COMPARE_PWM1, PC_6);
@@ -32,47 +31,34 @@ DigitalInput sw2(PB_1);
 DigitalInput sw3(PB_0);
 DigitalInput sw4(PA_7);
 
-HAL::Timer LED_Timer(HAL::Timer::TIMER6, HAL::Timer::CPU);
-HAL::Timer::Channel red  (LED_Timer, HAL::Timer::CH1, HAL::Timer::Channel::COMPARE_PWM1, PC_15);
-HAL::Timer::Channel green(LED_Timer, HAL::Timer::CH2, HAL::Timer::Channel::COMPARE_PWM1, PC_14);
-HAL::Timer::Channel blue (LED_Timer, HAL::Timer::CH3, HAL::Timer::Channel::COMPARE_PWM1, PC_13);
+DigitalOutput red(PB_15);
+DigitalOutput green(PB_14);
+DigitalOutput blue(PB_13);
 
 IRSensor left_irsensor(PC_3, PB_6);
 IRSensor right_irsensor(PC_0, PB_8);
 IRSensor front_left_irsensor(PC_2, PB_7);
 IRSensor front_right_irsensor(PC_1, PB_9);
-const float IR_READ_DELAY = 0.1;
-
-Ticker interrupts;
 
 //Gyro gyro(PC_10, PC_12, PC_11, PA_4, 1e7);
 
 Pid controller(0, 0, 0);
 
-void ir_update();
 float battery_level();
 
 int main()
 {
-	interrupts.attach(&ir_update, IR_READ_DELAY);
     motor_timer.set_period(511);
     motor_timer.enable(true);
     //gyro.calibrate();
-	green.write(0);
-	red.write(0);	
-	green.enable(true);
-	red.enable(true);
-
-	green.write(10);
-
     while(true) {
         if(battery_level() < 7.4) {
-            red.write(20);
+            red.write(1);
         } else {
             red.write(0);
         }
         if(!sw1.read()) {
-            const int BASE_SPEED = 10;
+            const int BASE_SPEED = 20;
             int left_speed = BASE_SPEED;
             int right_speed = BASE_SPEED;
             int correction = (int)controller.correction(left_encoder.count() - right_encoder.count());
@@ -89,10 +75,10 @@ int main()
             left.set_speed(0);
             right.set_speed(0);
         }
-		serial.printf("l %d\r\n", left_irsensor.getValue());
-        serial.printf("r %d\r\n", right_irsensor.getValue());
-        serial.printf("fl %d\r\n", front_left_irsensor.getValue());
-        serial.printf("fr %d\r\n", front_right_irsensor.getValue());
+        serial.printf("l %d\r\n", left_irsensor.read());
+        serial.printf("r %d\r\n", right_irsensor.read());
+        serial.printf("fl %d\r\n", front_left_irsensor.read());
+        serial.printf("fr %d\r\n", front_right_irsensor.read());
         wait(1);
     }
 }
@@ -101,12 +87,4 @@ float battery_level()
 {
     AnalogIn voltage_divider(PC_5);
     return (8.3 / 54700) * voltage_divider.read_u16();
-}
-
-void ir_update()
-{
-	left_irsensor.read();
-	front_left_irsensor.read();
-	front_right_irsensor.read();
-	right_irsensor.read();
 }
