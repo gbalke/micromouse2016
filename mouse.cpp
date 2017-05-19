@@ -42,11 +42,13 @@ IRSensor front_right_irsensor(PC_1, PB_9);
 
 //Gyro gyro(PC_10, PC_12, PC_11, PA_4, 1e7);
 
-Pid controller(0, 0, 0);
+Pid controller(20, 0.03, 0);
 
 float battery_level();
 
-float ir_distance(float reading, float scale, float time_constant, float midpoint, float max);
+float ir_distance_logistic(float reading, float scale, float time_constant,
+                            float midpoint, float max);
+float ir_distance_exp(float reading, float scale, float time_constant, float min);
 
 int main()
 {
@@ -60,17 +62,17 @@ int main()
             red.write(0);
         }
         if(!sw1.read()) {
-            const int BASE_SPEED = 20;
+            const int BASE_SPEED = 30;
             int left_speed = BASE_SPEED;
             int right_speed = BASE_SPEED;
             int correction = (int)controller.correction(left_encoder.count() - right_encoder.count());
             if(correction > 0) {
-                left_speed -= correction;
-                left_speed = (left_speed < 0) ? 0 : left_speed;
+                right_speed += correction;
             } else {
-                right_speed -= correction;
-                right_speed = (right_speed < 0) ? 0 : right_speed;
+                left_speed += correction;
             }
+            left_speed = ((unsigned) left_speed > 100) ? 100 : left_speed;
+            right_speed = ((unsigned) right_speed > 100) ? 100 : right_speed;
             left.set_speed(left_speed);
             right.set_speed(right_speed);
         } else {
@@ -79,10 +81,12 @@ int main()
         }
         int left = left_irsensor.read();
         int right = right_irsensor.read();
-        serial.printf("l %f\r\n", ir_distance(left, -1925.5, 0.4, 7.7, 4073.8));
-        serial.printf("r %f\r\n", ir_distance(right, -2298.3, 0.4, 6.5, 4129.8));
-        serial.printf("fl %d\r\n", front_left_irsensor.read());
-        serial.printf("fr %d\r\n", front_right_irsensor.read());
+        //serial.printf("l %d\r\n", left_encoder.count());
+        //serial.printf("r %d\r\n", right_encoder.count());
+        //serial.printf("l %f\r\n", ir_distance(left, 1925.5, 0.4, 7.7, 4073.8));
+        //serial.printf("r %f\r\n", ir_distance(right, 2298.3, 0.4, 6.5, 4129.8));
+        serial.printf("fl %f\r\n", ir_distance_exp(front_left_irsensor.read(), 9879, 0.5, 897));
+        serial.printf("fr %f\r\n", ir_distance_exp(front_right_irsensor.read(), 7875, 0.4, 1324.6));
         wait(1);
     }
 }
@@ -93,7 +97,31 @@ float battery_level()
     return (8.3 / 54700) * voltage_divider.read_u16();
 }
 
-float ir_distance(float reading, float scale, float time_constant, float midpoint, float max)
+static float max_distance = 0;
+
+float ir_distance_exp(float reading, float scale, float time_constant, float min)
 {
-    return midpoint - log(scale / (reading - max) - 1) / time_constant;
+    float dist = -1 * log((reading - min) / scale) / time_constant;
+    if(isnan(dist)) {
+        return max_distance;
+    } else {
+        if(dist > max_distance) {
+            max_distance = dist;
+        }
+    }
+    return dist;
+}
+
+float ir_distance_logistic(float reading, float scale, float time_constant,
+                            float midpoint, float max)
+{
+    float dist = midpoint - log(scale / (max - reading) - 1) / time_constant;
+    if(isnan(dist)) {
+        return max_distance;
+    } else {
+        if(dist > max_distance) {
+            max_distance = dist;
+        }
+    }
+    return dist;
 }
