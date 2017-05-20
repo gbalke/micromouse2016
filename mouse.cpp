@@ -44,15 +44,21 @@ DistanceSensor right_side_sensor(PC_1, PB_9, DistanceSensor::EXPONENTIAL, 7875.0
 //Gyro gyro(PC_10, PC_12, PC_11, PA_4, 1e7);
 
 Pid encoder_controller(20, 0.03, 0);
-Pid ir_controller(30, 0, 0);
+Pid ir_controller(50, 0, 0);
 
 double battery_level();
-bool is_side_wall(double reading);
+bool is_side_wall(double reading, double distance);
+bool is_front_wall(double left, double right, double distance);
+
+const int CELL_LENGTH = 780;
+bool is_green = false;
 
 int main()
 {
     motor_timer.set_period(511);
     motor_timer.enable(true);
+    int cell_count = 0;
+    int encoder_ticks = 0;
     //gyro.calibrate();
     bool ir_pid = true;
     while(true) {
@@ -61,18 +67,31 @@ int main()
         } else {
             red.write(0);
         }
+        if(encoder_ticks + (left_encoder.count() + right_encoder.count()) / 2 >
+                CELL_LENGTH * (cell_count + 1)) {
+            cell_count++;
+            is_green = !is_green;
+            green.write(is_green);
+        }
         if(!sw1.read()) {
-            const int BASE_SPEED = 30;
+            const int BASE_SPEED = 60;
+            const int MAX_SPEED = 200;
             int left_speed = BASE_SPEED;
             int right_speed = BASE_SPEED;
             double left = left_sensor.read();
             double right = right_sensor.read();
             double left_side = left_side_sensor.read();
             double right_side = right_side_sensor.read();
-            bool is_left_wall = is_side_wall(left_side);
-            bool is_right_wall = is_side_wall(right_side);
+            bool is_left_wall = is_side_wall(left_side, 9.0);
+            bool is_right_wall = is_side_wall(right_side, 9.0);
+            if(is_front_wall(left, right, 12.0)) {
+                left_motor.set_speed(0);
+                right_motor.set_speed(0);
+                continue;
+            }
             if(ir_pid && (!is_left_wall || !is_right_wall)) {
                 ir_pid = false;
+                encoder_ticks += (left_encoder.count() + right_encoder.count()) / 2;
                 left_encoder.reset();
                 right_encoder.reset();
                 encoder_controller.reset();
@@ -91,8 +110,8 @@ int main()
             } else {
                 left_speed += correction;
             }
-            left_speed = ((unsigned) left_speed > 100) ? 100 : left_speed;
-            right_speed = ((unsigned) right_speed > 100) ? 100 : right_speed;
+            left_speed = ((unsigned) left_speed > MAX_SPEED) ? MAX_SPEED : left_speed;
+            right_speed = ((unsigned) right_speed > MAX_SPEED) ? MAX_SPEED : right_speed;
             left_motor.set_speed(left_speed);
             right_motor.set_speed(right_speed);
         } else {
@@ -108,7 +127,12 @@ double battery_level()
     return (8.3 / 54700) * voltage_divider.read_u16();
 }
 
-bool is_side_wall(double reading)
+bool is_side_wall(double reading, double distance)
 {
-    return !isnan(reading) && reading < 8;
+    return !isnan(reading) && reading < distance;
+}
+
+bool is_front_wall(double left, double right, double distance)
+{
+    return !isnan(left) && !isnan(right) && left < distance && right < distance;
 }
