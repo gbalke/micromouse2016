@@ -2,8 +2,11 @@
 #include "digital_input.h"
 #include "interrupt_pin.h"
 
+// Location of interrupt vector table in memory. Refer to p.198 of the reference manual
 static void (*volatile *const ivt)() = (void (**)()) 0x00000040;
 
+// Config registers for the Nested Vector Interrupt Controller. Refer to p.61 of the Cortex M4
+// technical reference manual.
 struct nvic_register {
     // Some of the higher register values are reserved
     uint32_t iser[32];
@@ -17,6 +20,7 @@ struct nvic_register {
 
 static volatile nvic_register *const nvic = (nvic_register *const) 0xE000E100;
 
+// Config registers for the EXTI module. Refer to p.205 of the reference manual.
 struct exti_register {
     uint32_t imr;
     uint32_t emr;
@@ -26,8 +30,10 @@ struct exti_register {
     uint32_t pr;
 };
 
+// Location of EXTI register in memory. Refer to p.55 of the datasheet.
 static volatile exti_register *const exti = (exti_register *const) 0x40013C00;
 
+// Config registers for the SYSCFG module. Refer to p.136 of the reference manual.
 struct syscfg_register {
     uint32_t memrmp;
     uint32_t pmc;
@@ -35,6 +41,7 @@ struct syscfg_register {
     uint32_t cmpcr;
 };
 
+// Location of SYSCFG register in memory. Refer to p.55 of the datasheet.
 static volatile syscfg_register *const syscfg = (syscfg_register *const) 0x40013800;
 
 struct interrupt_handler {
@@ -47,6 +54,8 @@ static interrupt_handler exti_falling_handlers[16] = {0};
 static int exti9_5_pin = 0;
 static int exti15_10_pin = 0;
 
+// Wrapper around user provided handler. This wrapper function is then called by the
+// IVT entries, which cannot be changed at runtime.
 static inline void main_handler(uint8_t pin)
 {
     int index = pin / 4;

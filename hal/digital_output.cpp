@@ -12,7 +12,7 @@ DigitalOutput::DigitalOutput(Pin pin)
 
 void DigitalOutput::write(bool value)
 {
-    return write_pin(port_offset, this->pin, value);
+    write_pin(port_offset, this->pin, value);
 }
 
 void DigitalOutput::write_pin(uint8_t port, uint8_t pin, bool value)

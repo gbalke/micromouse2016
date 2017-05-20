@@ -1,6 +1,8 @@
 #pragma once
 #include <stdint.h>
 
+// Configuration registers for the Reset and Clock control module. Refer to p.99 of the reference
+// manual for details.
 struct rcc_register {
     uint32_t cr;
     uint32_t pllcfgr;
@@ -33,4 +35,5 @@ struct rcc_register {
     uint32_t dckcfgr;
 };
 
+// Location of rcc registers in memory, found on p.54 of the datasheet.
 static volatile rcc_register *const rcc = (rcc_register *const) 0x40023800;
