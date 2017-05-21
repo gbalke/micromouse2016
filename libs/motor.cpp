@@ -19,3 +19,9 @@ void Motor::set_speed(int speed)
         backward.write(-1*speed);
     }
 }
+
+void Motor::brake()
+{
+    forward.write(255);
+    backward.write(255);
+}

@@ -9,6 +9,7 @@ class DistanceSensor {
         DistanceSensor(Pin reciever, Pin emitter, Model model, double scale, double decay_rate,
                         double offset, double midpoint);
         double read();
+        int raw_read();
     private:
         IRSensor sensor;
         Model model;

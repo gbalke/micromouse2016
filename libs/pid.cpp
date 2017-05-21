@@ -10,7 +10,8 @@ Pid::Pid(double P, double I, double D)
 
 double Pid::correction(double error)
 {
-    double derivative = error - prev_error;
+    derivative = error - prev_error;
+    prev_error = error;
     if(error > 0 && integral >= DBL_MAX - error) {
         integral = DBL_MAX;
     } else if(error < 0 && integral <= -DBL_MAX - error) {
@@ -25,4 +26,9 @@ void Pid::reset()
 {
     integral = 0;
     prev_error = 0;
+}
+
+double Pid::get_derivative()
+{
+    return derivative;
 }
