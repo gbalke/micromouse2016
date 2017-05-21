@@ -32,13 +32,15 @@ public:
         shouldGoForward = false;
         visitedStart = false;
 		finishedUpdate = true;
-		solver = new Solver(16,16);
+		solver = new Solver(MazeDefinitions::MAZE_LEN, MazeDefinitions::MAZE_LEN);
+        count = 0;
     }
 
     MouseMovement nextMovement(unsigned x, unsigned y, const Maze &maze) {
  
 		if (finishedUpdate)
 		{       
+            count++;
 			Solver::Cell newCell;
 
 			newCell.N = maze.wallToNorth();
@@ -50,6 +52,9 @@ public:
 
 			directionToHead = solver->update(pos, convert(maze.getHeading()), newCell);
 			finishedUpdate = false;
+
+            std::cout << print() << std::endl << std::endl;
+
 		}
 
         // Pause at each cell if the user requests it.
@@ -65,6 +70,7 @@ public:
         // If we somehow miraculously hit the center
         // of the maze, just terminate and celebrate!
         if(isAtCenter(x, y)) {
+            std::cout << std::endl << count << std::endl << std::endl;
             std::cout << "Found center! Good enough for the demo, won't try to get back." << std::endl;
             return Finish;
         }
@@ -97,7 +103,25 @@ public:
         return Finish;
     }
 
+    std::string print()
+    {
+        std::string info = "";
+        for (int i = 0; i < solver->getNumCells(); i++)
+        {
+            if (!(i % MazeDefinitions::MAZE_LEN))
+                info += "\n";
+            if (solver->getDead(i))
+                info += "x";
+            else
+                info += "-";
+        }
+        return info;
+    }
+
 protected:
+    // Count of number of steps.
+    int count;
+
     // Helps us determine that we should go forward if we have just turned left.
     bool shouldGoForward;
 
@@ -105,10 +129,10 @@ protected:
 	Solver* solver;
 
     // Helps us determine if we've made a loop around the maze without finding the center.
-    bool visitedStart;
+    bool visitedStart;    
 
 	// Direction to keep track of between steps.
-	Dir directionToHead;
+	Solver::DIRECTION directionToHead;
 	bool finishedUpdate;
 
     // Indicates we should pause before moving to next cell.
@@ -130,7 +154,7 @@ protected:
 };
 
 int main(int argc, char * argv[]) {
-    MazeDefinitions::MazeEncodingName mazeName = MazeDefinitions::MAZE_CAMM_2012;
+    MazeDefinitions::MazeEncodingName mazeName = MazeDefinitions::MAZE_ALL_JAPAN_2012;
     bool pause = false;
 
     // Since Windows does not support getopt directly, we will
