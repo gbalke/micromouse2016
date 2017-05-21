@@ -7,6 +7,8 @@
 #include "digital_output.h"
 #include "distance_sensor.h"
 
+#include "stdlib.h"
+
 #include "mbed.h"
 
 #ifndef BTSERIAL
@@ -38,11 +40,11 @@ DigitalOutput blue(PB_13);
 
 DistanceSensor left_sensor(PC_3, PB_6, DistanceSensor::LOGISTIC, 1925.5, 0.4, 4073.8, 7.7);
 DistanceSensor right_sensor(PC_0, PB_8, DistanceSensor::LOGISTIC, 2298.3, 0.4, 4129.8, 6.5);
-DistanceSensor left_side_sensor(PC_2, PB_7, DistanceSensor::EXPONENTIAL, 2708.0, 0.351, 890.0, 0.0);
-DistanceSensor right_side_sensor(PC_1, PB_9, DistanceSensor::EXPONENTIAL, 2453.0, 0.3114, 1161.0, 0.0);
+DistanceSensor left_side_sensor(PC_2, PB_7, DistanceSensor::EXPONENTIAL, 2638.0, 0.3236, 955.0, 0.0);
+DistanceSensor right_side_sensor(PC_1, PB_9, DistanceSensor::EXPONENTIAL, 2245.0, 0.2564, 1394.0, 0.0);
 
-Pid encoder_controller(20, 0.03, 0);
-Pid ir_controller(800, 0, 0);
+Pid combined_controller(20, 0.0, 5);
+Pid ir_controller(800, 0, 50);
 Pid turn_controller(1, 0, 0.1);
 
 enum Direction {
@@ -66,7 +68,6 @@ int main()
     motor_timer.set_period(511);
     motor_timer.enable(true);
     int cell_count = 0;
-    int encoder_ticks = 0;
     Direction mode = FORWARD;
     bool ir_pid = true;
     int turn_counter = 0;
@@ -85,32 +86,36 @@ int main()
             double right = right_sensor.read();
             double left_side = left_side_sensor.read();
             double right_side = right_side_sensor.read();
-            bool is_left_wall = is_side_wall(left_side, 9.0);
-            bool is_right_wall = is_side_wall(right_side, 9.0);
+            bool is_left_wall = is_side_wall(left_side, 6);
+            bool is_right_wall = is_side_wall(right_side, 6);
             left_opening |= !is_left_wall;
             right_opening |= !is_right_wall;
-            blue.write(ir_pid);
-            if(mode == FORWARD && encoder_ticks + (left_encoder.count() + right_encoder.count()) / 2 >
-                    CELL_LENGTH * (cell_count + 1)) {
+            //blue.write(ir_pid);
+            int pos = (left_encoder.count() + right_encoder.count()) / 2;
+            if(mode == FORWARD && pos > (CELL_LENGTH * (cell_count + 1))) {
                 cell_count++;
                 is_green = !is_green;
                 green.write(is_green);
-                /*if(left_opening) {
-                    stop();
-                    mode = LEFT;
-                } else if(right_opening) {
-                    stop();
-                    mode = RIGHT;
-                }*/
+                if(sw2.read() || (sw3.read() && (rand() % 2))) {
+                    if(left_opening) {
+                        stop();
+                        mode = LEFT;
+                    } else if(right_opening) {
+                        stop();
+                        mode = RIGHT;
+                    }
+                }
+                left_opening = false;
+                right_opening = false;
             }
-            if(mode == FORWARD && is_front_wall(left, right, 8.5)) {
+            if(mode == FORWARD && is_front_wall(left, right, 10)) {
                 if(left_opening) {
                     stop();
                     mode = LEFT;
                 } else if(right_opening) {
                     stop();
                     mode = RIGHT;
-                } else if(left_side > right_side) {
+                } else if(rand() % 2) {
                     stop();
                     mode = LEFT;
                 } else {
@@ -118,15 +123,10 @@ int main()
                     mode = RIGHT;
                 }
             }
-            if(mode == FORWARD && ir_pid && !is_left_wall && !is_right_wall) {
+            if(mode == FORWARD && ir_pid && (!is_left_wall || !is_right_wall)) {
                 ir_pid = false;
-                encoder_ticks += (left_encoder.count() + right_encoder.count()) / 2;
-                left_encoder.reset();
-                right_encoder.reset();
-                encoder_controller.reset();
-            } else if(mode == FORWARD && !ir_pid && (is_left_wall || is_right_wall)) {
+            } else if(mode == FORWARD && !ir_pid && (is_left_wall && is_right_wall)) {
                 ir_pid = true;
-                ir_controller.reset();
             }
             switch(mode) {
                 case FORWARD:
@@ -136,9 +136,6 @@ int main()
                 case RIGHT:
                     if(stop_counter < 1000) {
                         stop_counter++;
-                        left_encoder.reset();
-                        right_encoder.reset();
-                        turn_controller.reset();
                     } else if(turn(mode)) {
                         turn_counter++;
                     }
@@ -148,11 +145,19 @@ int main()
                         turn_counter = 0;
                         left_opening = false;
                         right_opening = false;
+                        cell_count = 0;
+                        left_encoder.reset();
+                        right_encoder.reset();
+                        turn_controller.reset();
+                        combined_controller.reset();
                     }
                     break;
             }
         } else {
             stop();
+            serial.printf("l %d\r\n", left_encoder.count());
+            serial.printf("r %d\r\n", right_encoder.count());
+            wait(1);
         }
     }
 }
@@ -165,18 +170,19 @@ void stop()
 
 void forward(bool is_left_wall, bool is_right_wall, double left_side, double right_side)
 {
-    const int BASE_SPEED = 60;
-    const int MAX_SPEED = 200;
-    const int LEFT_SETPOINT = 7;
-    const int RIGHT_SETPOINT = 5;
+    const int BASE_SPEED = 20;
+    const int MAX_SPEED = 100;
+    const int LEFT_SETPOINT = 3;
+    const int RIGHT_SETPOINT = 3;
     int left_speed = BASE_SPEED;
     int right_speed = BASE_SPEED;
     int correction;
-    if(is_left_wall || is_right_wall) {
-        correction = (int)ir_controller.correction(is_left_wall*(left_side - LEFT_SETPOINT) -
-                                                    is_right_wall*(right_side - RIGHT_SETPOINT));
+    if(is_left_wall && is_right_wall) {
+        correction = (int)combined_controller.correction(100*(left_side-right_side)+left_encoder.count()-right_encoder.count());
+        //correction = (int)ir_controller.correction(is_left_wall*(left_side - LEFT_SETPOINT) -
+         //                                           is_right_wall*(right_side - RIGHT_SETPOINT));
     } else {
-        correction = (int)encoder_controller.correction(left_encoder.count() - right_encoder.count());
+        correction = (int)combined_controller.correction(left_encoder.count() - right_encoder.count());
     }
     if(correction > 0) {
         right_speed += correction;
@@ -191,7 +197,7 @@ void forward(bool is_left_wall, bool is_right_wall, double left_side, double rig
 
 bool turn(Direction direction)
 {
-    const int MAX_SPEED = 100;
+    const int MAX_SPEED = 30;
     int left_speed, right_speed;
     double error = left_encoder.count() - right_encoder.count() - direction * 555;
     int correction = (int)turn_controller.correction(error);
