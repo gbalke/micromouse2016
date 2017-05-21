@@ -21,6 +21,7 @@ DistanceSensor::DistanceSensor(Pin reciever, Pin emitter, Model model, double sc
 {
     this->model = model;
 }
+
 double DistanceSensor::read()
 {
     if(model == LOGISTIC) {
@@ -28,4 +29,9 @@ double DistanceSensor::read()
     } else {
         return ir_distance_exp(sensor.read(), scale, decay_rate, offset);
     }
+}
+
+int DistanceSensor::raw_read()
+{
+    return sensor.read();
 }
