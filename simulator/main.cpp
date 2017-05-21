@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstdlib>  // atoi
+#include <string>
 
 #include "Maze.h"
 #include "MazeDefinitions.h"
@@ -43,12 +44,14 @@ public:
             count++;
 			Solver::Cell newCell;
 
-			newCell.N = maze.wallToNorth();
-			newCell.S = maze.wallToSouth();
-			newCell.E = maze.wallToEast();
-			newCell.W = maze.wallToWest();
+			newCell.n = maze.wallToNorth();
+			newCell.s = maze.wallToSouth();
+			newCell.e = maze.wallToEast();
+			newCell.w = maze.wallToWest();
 	
-			Solver::Position pos(x,y);
+			Solver::Position pos;
+			pos.x = x;
+			pos.y = y;
 
 			directionToHead = solver->update(pos, convert(maze.getHeading()), newCell);
 			finishedUpdate = false;
@@ -110,10 +113,9 @@ public:
         {
             if (!(i % MazeDefinitions::MAZE_LEN))
                 info += "\n";
-            if (solver->getDead(i))
-                info += "x";
-            else
-                info += "-";
+
+			std::string dist = std::to_string(solver->getDist(i));
+			info += dist + " "; 
         }
         return info;
     }
@@ -155,7 +157,7 @@ protected:
 
 int main(int argc, char * argv[]) {
     MazeDefinitions::MazeEncodingName mazeName = MazeDefinitions::MAZE_ALL_JAPAN_2012;
-    bool pause = false;
+    bool pause = true;
 
     // Since Windows does not support getopt directly, we will
     // have to parse the command line arguments ourselves.
