@@ -15,6 +15,12 @@ public:
 		EAST,
 		WEST
 	};
+
+    enum CHECKS {
+        CHECK_DEAD_END = 0,
+        CHECK_HAS_ENTERED,
+        CHECK_TIMED_OUT
+    };
 	
 	// Common data struct for position.
 	struct Position
@@ -32,7 +38,16 @@ public:
 			 E:1, 		// East Wall
 			 W:1, 		// West Wall
 			 deadEnd:1,	// Set if this cell leads to a dead end.
-			 hasEnt:1;	// Set if this cell has been entered.
+             hasEnt:1,	// Set if this cell has been entered.
+             timedOut:1;// Timed out means the cell was killed after too many visits.
+        uint8_t visits;
+        Cell()
+        {
+            deadEnd = 0;
+            hasEnt = 0;
+            timedOut = 0;
+            visits = 0;
+        }
 	};
 
 	Solver (uint8_t max_X, uint8_t max_Y);
@@ -40,22 +55,30 @@ public:
 	// 	returns the next direction to move:
 	DIRECTION update(const Position &pos, const DIRECTION &currDir, const Cell &newCell);
 
+    int getNumCells();
+
+    bool Solver::getDead(int pos);
+
 private:
 	// Dimensions of the maze and center point.
 	uint8_t size_X, size_Y,
 			center_X, center_Y;
+    int numCells;
 
 	// Maze cell storage array.
 	Cell * cells;
 
 	// Checks the position passed to see if it is a valid path.
-	bool checkCell (Position pos, const DIRECTION dir);
+	bool checkCell (Position pos, const DIRECTION dir, const CHECKS type);
 	
 	// Finds the direction that heads towards the center.
-	DIRECTION findClosest (const Position &pos);
+	DIRECTION findClosest (const Position &pos, const DIRECTION dir);
 
 	// Get inverse of the passed direction.
 	DIRECTION getOppositeDir (const DIRECTION &dir);
+
+    // Find an open wall.
+    DIRECTION findOpen(Position pos);
 
 	void setWalls (Cell &toSet, const Cell &data);
 };
