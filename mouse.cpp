@@ -40,8 +40,8 @@ DigitalOutput blue(PB_13);
 
 DistanceSensor left_sensor(PC_3, PB_6, DistanceSensor::LOGISTIC, 1925.5, 0.4, 4073.8, 7.7);
 DistanceSensor right_sensor(PC_0, PB_8, DistanceSensor::LOGISTIC, 2298.3, 0.4, 4129.8, 6.5);
-DistanceSensor left_side_sensor(PC_2, PB_7, DistanceSensor::EXPONENTIAL, 2638.0, 0.3236, 955.0, 0.0);
-DistanceSensor right_side_sensor(PC_1, PB_9, DistanceSensor::EXPONENTIAL, 2245.0, 0.2564, 1394.0, 0.0);
+DistanceSensor left_side_sensor(PC_2, PB_7, DistanceSensor::EXPONENTIAL, 2395.0, 0.3236, 1367.0, 0.0);
+DistanceSensor right_side_sensor(PC_1, PB_9, DistanceSensor::EXPONENTIAL, 1637.0, 0.2564, 2053.0, 0.0);
 
 Pid combined_controller(20, 0.0, 5);
 Pid ir_controller(800, 0, 50);
@@ -67,6 +67,7 @@ int main()
 {
     motor_timer.set_period(511);
     motor_timer.enable(true);
+    srand(left_side_sensor.raw_read() % 16);
     int cell_count = 0;
     Direction mode = FORWARD;
     bool ir_pid = true;
@@ -86,29 +87,32 @@ int main()
             double right = right_sensor.read();
             double left_side = left_side_sensor.read();
             double right_side = right_side_sensor.read();
-            bool is_left_wall = is_side_wall(left_side, 6);
-            bool is_right_wall = is_side_wall(right_side, 6);
+            bool is_left_wall = is_side_wall(left_side, 7.8);
+            bool is_right_wall = is_side_wall(right_side, 9.5);
             left_opening |= !is_left_wall;
             right_opening |= !is_right_wall;
-            //blue.write(ir_pid);
+            blue.write(ir_pid);
             int pos = (left_encoder.count() + right_encoder.count()) / 2;
             if(mode == FORWARD && pos > (CELL_LENGTH * (cell_count + 1))) {
                 cell_count++;
                 is_green = !is_green;
                 green.write(is_green);
                 if(sw2.read() || (sw3.read() && (rand() % 2))) {
-                    if(left_opening) {
-                        stop();
-                        mode = LEFT;
-                    } else if(right_opening) {
-                        stop();
-                        mode = RIGHT;
+                    bool only_one = left_opening ^ right_opening;
+                    if(!sw4.read() || only_one) {
+                        if(left_opening) {
+                            stop();
+                            mode = LEFT;
+                        } else if(right_opening) {
+                            stop();
+                            mode = RIGHT;
+                        }
                     }
                 }
                 left_opening = false;
                 right_opening = false;
             }
-            if(mode == FORWARD && is_front_wall(left, right, 10)) {
+            if(mode == FORWARD && is_front_wall(left, right, 5.0)) {
                 if(left_opening) {
                     stop();
                     mode = LEFT;
@@ -155,8 +159,10 @@ int main()
             }
         } else {
             stop();
-            serial.printf("l %d\r\n", left_encoder.count());
-            serial.printf("r %d\r\n", right_encoder.count());
+            serial.printf("l %d\r\n", left_side_sensor.raw_read());
+            serial.printf("l %f\r\n", left_side_sensor.read());
+            serial.printf("r %d\r\n", right_side_sensor.raw_read());
+            serial.printf("r %f\r\n", right_side_sensor.read());
             wait(1);
         }
     }
