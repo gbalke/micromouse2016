@@ -9,12 +9,13 @@ class IRSensor
 	private:
 		AnalogIn receiver_pin;
 		DigitalOutput emitter_pin;
-		uint16_t lastRead;
 
 	public:
 		IRSensor (PinName rp, PinName ep);
 
 		uint16_t read();
+        // reads without emitting, to measure ambient light
+        uint16_t read_ambient();
 };
 
 #endif

@@ -38,13 +38,13 @@ DigitalOutput red(PB_15);
 DigitalOutput green(PB_14);
 DigitalOutput blue(PB_13);
 
-DistanceSensor left_sensor(PC_3, PB_6, DistanceSensor::LOGISTIC, 1925.5, 0.4, 4073.8, 7.7);
-DistanceSensor right_sensor(PC_0, PB_8, DistanceSensor::LOGISTIC, 2298.3, 0.4, 4129.8, 6.5);
-DistanceSensor left_side_sensor(PC_2, PB_7, DistanceSensor::EXPONENTIAL, 2395.0, 0.3236, 1367.0, 0.0);
-DistanceSensor right_side_sensor(PC_1, PB_9, DistanceSensor::EXPONENTIAL, 1637.0, 0.2564, 2053.0, 0.0);
+DistanceSensor left_sensor(PC_3, PB_6);
+DistanceSensor right_sensor(PC_0, PB_8);
+DistanceSensor left_side_sensor(PC_2, PB_7);
+DistanceSensor right_side_sensor(PC_1, PB_9);
 
 Pid combined_controller(20, 0.0, 5);
-Pid ir_controller(800, 0, 50);
+Pid ir_controller(800, 0, 100);
 Pid turn_controller(1, 0, 0.1);
 
 enum Direction {
@@ -76,6 +76,8 @@ int main()
     bool left_opening = false;
     bool right_opening = false;
     green.write(is_green);
+    left_side_sensor.calibrate();
+    right_side_sensor.calibrate();
     while(true) {
         if(battery_level() < 7.4) {
             red.write(1);
@@ -159,10 +161,8 @@ int main()
             }
         } else {
             stop();
-            serial.printf("l %d\r\n", left_side_sensor.raw_read());
-            serial.printf("l %f\r\n", left_side_sensor.read());
-            serial.printf("r %d\r\n", right_side_sensor.raw_read());
-            serial.printf("r %f\r\n", right_side_sensor.read());
+            serial.printf("l %f\r\n", (left_side_sensor.read()));
+            serial.printf("r %f\r\n", (right_side_sensor.read()));
             wait(1);
         }
     }
@@ -184,9 +184,9 @@ void forward(bool is_left_wall, bool is_right_wall, double left_side, double rig
     int right_speed = BASE_SPEED;
     int correction;
     if(is_left_wall && is_right_wall) {
-        correction = (int)combined_controller.correction(100*(left_side-right_side)+left_encoder.count()-right_encoder.count());
-        //correction = (int)ir_controller.correction(is_left_wall*(left_side - LEFT_SETPOINT) -
-         //                                           is_right_wall*(right_side - RIGHT_SETPOINT));
+        //correction = (int)combined_controller.correction(100*(left_side-right_side)+left_encoder.count()-right_encoder.count());
+        correction = (int)ir_controller.correction(is_left_wall*(left_side - LEFT_SETPOINT) -
+                                                    is_right_wall*(right_side - RIGHT_SETPOINT));
     } else {
         correction = (int)combined_controller.correction(left_encoder.count() - right_encoder.count());
     }

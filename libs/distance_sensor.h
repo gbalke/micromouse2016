@@ -2,19 +2,12 @@
 
 class DistanceSensor {
     public:
-        enum Model {
-            LOGISTIC,
-            EXPONENTIAL
-        };
-        DistanceSensor(Pin reciever, Pin emitter, Model model, double scale, double decay_rate,
-                        double offset, double midpoint);
+        DistanceSensor(Pin reciever, Pin emitter);
         double read();
-        int raw_read();
+        void calibrate();
+        uint16_t raw_read();
+        uint16_t raw_ambient();
     private:
         IRSensor sensor;
-        Model model;
-        const double scale;
-        const double decay_rate;
-        const double offset;
-        const double midpoint;
+        double scale;
 };
