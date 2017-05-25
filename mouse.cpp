@@ -11,13 +11,20 @@
 
 #include "mbed.h"
 
-#ifndef BTSERIAL
+// Enable Serial Communications
+// Uncomment SERIAL_ENABLE to enable hardware serial.
+// Uncomment SERIAL_ENABLE and BLUETOOTH to enable bluetooth serial.
+//#define SERIAL_ENABLE
+//#define BLUETOOTH
+
+#if !defined(BLUETOOTH) && defined(SERIAL_ENABLE)
 Serial serial(PA_2, PA_3);
 #endif
-#ifdef BTSERIAL
+#if defined(BLUETOOTH) && defined(SERIAL_ENABLE)
 Serial serial(PA_9, PA_10);
 #endif 
 
+// Setting up PWM timer and handlers for the motors.
 HAL::Timer motor_timer(HAL::Timer::TIMER3, HAL::Timer::CPU);
 HAL::Timer::Channel lbwd(motor_timer, HAL::Timer::CH1, HAL::Timer::Channel::COMPARE_PWM1, PC_6);
 HAL::Timer::Channel lfwd(motor_timer, HAL::Timer::CH2, HAL::Timer::Channel::COMPARE_PWM1, PC_7);
@@ -29,25 +36,30 @@ Motor right_motor(rfwd, rbwd);
 TimerEncoder left_encoder(HAL::Timer::TIMER2, PA_1, PA_0);
 InterruptEncoder right_encoder(PB_3, PA_15, InterruptEncoder::X4);
 
+// DIP switch setup.
 DigitalInput sw1(PB_12);
 DigitalInput sw2(PB_1);
 DigitalInput sw3(PB_0);
 DigitalInput sw4(PA_7);
 
+// LED colors setup.
 DigitalOutput red(PB_15);
 DigitalOutput green(PB_14);
 DigitalOutput blue(PB_13);
 
+// IR sensor setup.
 DistanceSensor left_sensor(PC_3, PB_6);
 DistanceSensor right_sensor(PC_0, PB_8);
 DistanceSensor left_side_sensor(PC_2, PB_7);
 DistanceSensor right_side_sensor(PC_1, PB_9);
 
+// PID object setup.
 Pid combined_controller(20, 0.0, 5);
 Pid ir_controller(800, 0, 100);
 Pid left_turn_controller(10, 0, 50);
 Pid right_turn_controller(10, 0, 50);
 
+// Establishing Direction enum.
 enum Direction {
     FORWARD = 0,
     LEFT = -1,
@@ -55,6 +67,14 @@ enum Direction {
     FLIP = 2,
 };
 
+// Const defines.
+const static float THRESHHOLD_VOLTAGE = 7.4; // If the voltage reads below this value then the red LED will turn on.
+const int CELL_LENGTH = 795; // Number of encoder counts in one cell.
+const static float LEFT_WALL_DIST = 7.8;
+const static float RIGHT_WALL_DIST = 9.5;
+const static float FRONT_WALL_DIST = 5.0;
+
+// Function Prototypes.
 double battery_level();
 bool is_side_wall(double reading, double distance);
 bool is_front_wall(double left, double right, double distance);
@@ -62,41 +82,62 @@ void forward(bool is_left_wall, bool is_right_wall, double left_side, double rig
 void stop();
 bool turn(Direction direction);
 
-const int CELL_LENGTH = 795;
-bool is_green = true;
-
 int main()
 {
+	// Bool for when green LED is high.
+	bool is_green = true;
+	// Setting up PWM for motors.
     motor_timer.set_period(511);
     motor_timer.enable(true);
+	// Seeding random generator.
     srand(left_side_sensor.raw_read() % 16);
+	// Keeps track of the number of cells we've traveled through.
     int cell_count = 0;
-    Direction mode = FLIP;
+	// Will be true when there are walls on both sides to be used for PID.
     bool ir_pid = true;
     int stop_counter = 0;
+	// Bools keeping track of whether or not there is an opening to the left and right of the mouse.
     bool left_opening = false;
     bool right_opening = false;
+	// Indicates that the mouse is on.
     green.write(is_green);
+
+	// Calibrating IR on boot.
+	// The mouse should be facing towards the back wall of start (will turn around on its own).
     left_sensor.calibrate();
     right_sensor.calibrate();
     left_side_sensor.calibrate();
     right_side_sensor.calibrate();
+	// Set first turn operation (turn around after calibration).
+    Direction mode = FLIP;
+
     while(true) {
-        if(battery_level() < 7.4) {
+
+		// Check if battery level is below threshhold voltage.
+        if(battery_level() < THRESHHOLD_VOLTAGE) {
             red.write(1);
         } else {
             red.write(0);
         }
+		
+		// Disable mouse until switch one is on.
         if(!sw1.read()) {
+			// Read IR sensor values.
             double left = left_sensor.read();
             double right = right_sensor.read();
             double left_side = left_side_sensor.read();
             double right_side = right_side_sensor.read();
-            bool is_left_wall = is_side_wall(left_side, 7.8);
-            bool is_right_wall = is_side_wall(right_side, 9.5);
+			// Calculate whether or not there are walls on either side.
+            bool is_left_wall = is_side_wall(left_side, LEFT_WALL_DIST);
+            bool is_right_wall = is_side_wall(right_side, RIGHT_WALL_DIST);
+			// If there is no wall read set to open and maintain. If there is a wall, maintain current state.
+			// Must use further verification to make sure there is no opening.
             left_opening |= !is_left_wall;
             right_opening |= !is_right_wall;
+
+			// Write blue high while using IR for PID.
             blue.write(ir_pid);
+			// Determining which direction to drive next.
             int pos = (left_encoder.count() + right_encoder.count()) / 2;
             if(mode == FORWARD && pos > (CELL_LENGTH * (cell_count + 1))) {
                 cell_count++;
@@ -115,7 +156,7 @@ int main()
                 left_opening = false;
                 right_opening = false;
             }
-            if(mode == FORWARD && is_front_wall(left, right, 5.0)) {
+            if(mode == FORWARD && is_front_wall(left, right, FRONT_WALL_DIST)) {
                 if(left_opening) {
                     mode = LEFT;
                 } else if(right_opening) {
@@ -131,6 +172,8 @@ int main()
             } else if(mode == FORWARD && !ir_pid && (is_left_wall && is_right_wall)) {
                 ir_pid = true;
             }
+
+			// Switch to handle next movement (actual drive code).
             switch(mode) {
                 case FORWARD:
                     forward(is_left_wall, is_right_wall, left_side, right_side);
@@ -161,12 +204,14 @@ int main()
             }
         } else {
             stop();
-            //serial.printf("l %d\r\n", left_encoder.count());
-            //serial.printf("r %d\r\n", right_encoder.count());
-            //serial.printf("l %f\r\n", (left_sensor.read()));
-            //serial.printf("r %f\r\n", (right_sensor.read()));
-            //serial.printf("ls %f\r\n", (left_side_sensor.read()));
-            //serial.printf("rs %f\r\n", (right_side_sensor.read()));
+#ifdef SERIAL_ENABLE
+            serial.printf("l %d\r\n", left_encoder.count());
+            serial.printf("r %d\r\n", right_encoder.count());
+            serial.printf("l %f\r\n", (left_sensor.read()));
+            serial.printf("r %f\r\n", (right_sensor.read()));
+            serial.printf("ls %f\r\n", (left_side_sensor.read()));
+            serial.printf("rs %f\r\n", (right_side_sensor.read()));
+#endif
         }
     }
 }
