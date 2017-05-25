@@ -45,12 +45,14 @@ DistanceSensor right_side_sensor(PC_1, PB_9);
 
 Pid combined_controller(20, 0.0, 5);
 Pid ir_controller(800, 0, 100);
-Pid turn_controller(1, 0, 0.1);
+Pid left_turn_controller(10, 0, 50);
+Pid right_turn_controller(10, 0, 50);
 
 enum Direction {
     FORWARD = 0,
     LEFT = -1,
     RIGHT = 1,
+    FLIP = 2,
 };
 
 double battery_level();
@@ -69,13 +71,14 @@ int main()
     motor_timer.enable(true);
     srand(left_side_sensor.raw_read() % 16);
     int cell_count = 0;
-    Direction mode = FORWARD;
+    Direction mode = FLIP;
     bool ir_pid = true;
-    int turn_counter = 0;
     int stop_counter = 0;
     bool left_opening = false;
     bool right_opening = false;
     green.write(is_green);
+    left_sensor.calibrate();
+    right_sensor.calibrate();
     left_side_sensor.calibrate();
     right_side_sensor.calibrate();
     while(true) {
@@ -103,10 +106,8 @@ int main()
                     bool only_one = left_opening ^ right_opening;
                     if(!sw4.read() || only_one) {
                         if(left_opening) {
-                            stop();
                             mode = LEFT;
                         } else if(right_opening) {
-                            stop();
                             mode = RIGHT;
                         }
                     }
@@ -116,16 +117,12 @@ int main()
             }
             if(mode == FORWARD && is_front_wall(left, right, 5.0)) {
                 if(left_opening) {
-                    stop();
                     mode = LEFT;
                 } else if(right_opening) {
-                    stop();
                     mode = RIGHT;
                 } else if(rand() % 2) {
-                    stop();
                     mode = LEFT;
                 } else {
-                    stop();
                     mode = RIGHT;
                 }
             }
@@ -140,30 +137,36 @@ int main()
                     break;
                 case LEFT:
                 case RIGHT:
+                case FLIP:
+                    // have to wait for the mouse to stop to allow for an accurate turn
                     if(stop_counter < 1000) {
+                        stop();
+                        left_encoder.reset();
+                        right_encoder.reset();
                         stop_counter++;
                     } else if(turn(mode)) {
-                        turn_counter++;
-                    }
-                    if(turn_counter == 1000) {
                         mode = FORWARD;
                         stop_counter = 0;
-                        turn_counter = 0;
                         left_opening = false;
                         right_opening = false;
                         cell_count = 0;
                         left_encoder.reset();
                         right_encoder.reset();
-                        turn_controller.reset();
+                        left_turn_controller.reset();
+                        right_turn_controller.reset();
+                        ir_controller.reset();
                         combined_controller.reset();
                     }
                     break;
             }
         } else {
             stop();
-            serial.printf("l %f\r\n", (left_side_sensor.read()));
-            serial.printf("r %f\r\n", (right_side_sensor.read()));
-            wait(1);
+            //serial.printf("l %d\r\n", left_encoder.count());
+            //serial.printf("r %d\r\n", right_encoder.count());
+            //serial.printf("l %f\r\n", (left_sensor.read()));
+            //serial.printf("r %f\r\n", (right_sensor.read()));
+            //serial.printf("ls %f\r\n", (left_side_sensor.read()));
+            //serial.printf("rs %f\r\n", (right_side_sensor.read()));
         }
     }
 }
@@ -201,24 +204,40 @@ void forward(bool is_left_wall, bool is_right_wall, double left_side, double rig
     right_motor.set_speed(right_speed);
 }
 
+// Turns the mouse
+// LEFT → 90° to the left
+// RIGHT → 90° to the right
+// FLIP → 180° turn to the right
+// Returns true if the turn is complete
 bool turn(Direction direction)
 {
-    const int MAX_SPEED = 30;
+    // be careful about burning out motors
+    const int MAX_SPEED = 200;
+    // each wheel must turn this much to make a 90° turn
+    const int ENCODER_COUNT = 284;
     int left_speed, right_speed;
-    double error = left_encoder.count() - right_encoder.count() - direction * 555;
-    int correction = (int)turn_controller.correction(error);
-    right_speed = correction;
+    // sign of direction is reversed for each error so that wheels turn in opposite directions
+    int left_error = left_encoder.count() - direction * ENCODER_COUNT;
+    int right_error = right_encoder.count() + direction * ENCODER_COUNT;
+    int left_correction = (int)left_turn_controller.correction(left_error);
+    int right_correction = (int)right_turn_controller.correction(right_error);
+    // We must reverse each correction so the wheels turn the correct direction
+    right_speed = -1 * right_correction;
+    left_speed = -1 * left_correction;
     right_speed = (right_speed > MAX_SPEED) ? MAX_SPEED : right_speed;
     right_speed = (right_speed < -1 * MAX_SPEED) ? -1 * MAX_SPEED : right_speed;
-    left_speed = -1 * right_speed;
+    left_speed = (left_speed > MAX_SPEED) ? MAX_SPEED : left_speed;
+    left_speed = (left_speed < -1 * MAX_SPEED) ? -1 * MAX_SPEED : left_speed;
     left_motor.set_speed(left_speed);
     right_motor.set_speed(right_speed);
-    return turn_controller.get_derivative() == 0;
+    return left_correction == 0 && right_correction == 0;
 }
 
+// Returns the battery voltage level in Volts
 double battery_level()
 {
     AnalogIn voltage_divider(PC_5);
+    // value found experimentally
     return (8.3 / 54700) * voltage_divider.read_u16();
 }
 
