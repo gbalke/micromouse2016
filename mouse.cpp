@@ -151,12 +151,11 @@ int main()
 				// Drive half a cell backwards and calibrate.
 				while(true) {
 					int pos = std::abs((left_encoder.count() + right_encoder.count()) / 2);	
-						backward();
+					backward();
 			
-						if(pos > (CELL_LENGTH/2)) {
-							stop();
-							break;
-				    	}
+					if(pos > (CELL_LENGTH/2)) {
+						stop();
+						break;
 					}
 				}
 				wait(1); // Wait a quarter second to stop moving
