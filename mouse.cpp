@@ -60,22 +60,19 @@ DistanceSensor right_side_sensor(PC_1, PB_9);
 
 // PID object setup.
 Pid combined_controller(20, 0.03, 5);
-Pid ir_controller(800, 0, 100);
-Pid left_turn_controller(10, 0, 50);
-Pid right_turn_controller(10, 0, 50);
+Pid ir_controller(800, 0, 1200);
 Pid backward_controller(20,0.0,5);
 
 // Different modes supported by the mouse. Setting mode to one of these will cause the
 // corresponding action
-enum Direction {
-    FORWARD = 0,
+enum Mode {
+    INIT = 0,
+    FORWARD = 3,
     LEFT = -1,
     RIGHT = 1,
     FLIP = 2,
-	BACKWARD,
-	// don't use STOP with turn()
-    STOP,
-
+	BACKWARD = 4,
+    STOP = 5,
 };
 
 // Const defines.
@@ -89,11 +86,15 @@ double battery_level();
 bool is_side_wall(double reading, double distance);
 bool is_front_wall(double left, double right, double distance);
 void forward(bool is_left_wall, bool is_right_wall, double left_side, double right_side);
+bool init();
 void backward();
 bool stop();
 void brake();
 bool set_pos(int left_pos, int right_pos);
-bool turn(Direction direction);
+bool turn(Mode direction);
+
+// Keeps track of the number of cells we've traveled through.
+int cell_count = 0;
 
 int main()
 {
@@ -104,15 +105,13 @@ int main()
     motor_timer.enable(true);
 	// Seeding random generator.
     srand(left_side_sensor.raw_read() % 16);
-	// Keeps track of the number of cells we've traveled through.
-    int cell_count = 0;
 	// Will be true when there are walls on both sides to be used for PID.
     bool ir_pid = true;
 	// Bools keeping track of whether or not there is an opening to the left and right of the mouse.
     bool left_opening = false;
     bool right_opening = false;
 	// Indicates that the mouse is on.
-    green.write(is_green);
+    //green.write(is_green);
 
 	// Declare Sensor and wall variables.
 	double left; 
@@ -122,17 +121,14 @@ int main()
 	bool is_left_wall; 
     bool is_right_wall;
 
-	// setup runs on the first loop of the drive code.
-	bool setup = true;
-
 	// Calibrating IR on boot.
 	// The mouse should be facing towards the back wall of start (will turn around on its own). 
-    left_side_sensor.calibrate();
-    right_side_sensor.calibrate();
+    left_sensor.calibrate();
+    right_sensor.calibrate();
 
 	
 	// Set first turn operation (turn around after calibration).
-    Direction mode = FLIP;
+    Mode mode = INIT;
 
     while(true) {
 
@@ -146,130 +142,100 @@ int main()
 		// Disable mouse until switch one is on.
         if(!kill_switch.read()) 
 		{
-			if (setup)
-			{
-				// Drive half a cell backwards and calibrate.
-				while(true) {
-					int pos = std::abs((left_encoder.count() + right_encoder.count()) / 2);	
-					backward();
-			
-					if(pos > (CELL_LENGTH/2)) {
-						brake();
-						break;
-					}
-				}
-				wait(1); // Wait a quarter second to stop moving
-				// Calibrate side IRs.
-				left_sensor.calibrate();
-			    right_sensor.calibrate();
-				// Drive the other half of the cell backwards.
-				while(true) {
-					int pos = std::abs((left_encoder.count() + right_encoder.count()) / 2);
-					
-					backward();
-			
-					if(pos > (CELL_LENGTH)) {
-						cell_count++;
-						brake();
-						setup = false;
-						break;
-				    }
-				}
 
-				
-			}
-			else {
-				// Read IR sensor values.
-    	        left = left_sensor.read();
-    	        right = right_sensor.read();
-    	        left_side = left_side_sensor.read();
-    	        right_side = right_side_sensor.read();
-				// Calculate whether or not there are walls on either side.
-    	        is_left_wall = is_side_wall(left_side, LEFT_WALL_DIST);
-    	        is_right_wall = is_side_wall(right_side, RIGHT_WALL_DIST);
-				// If there is no wall read set to open and maintain. If there is a wall, maintain current state.
-				// Must use further verification to make sure there is no opening.
-    	        left_opening |= !is_left_wall;
-    	        right_opening |= !is_right_wall;
+            // Handling if current state is forward.
+            if (mode == FORWARD)
+            {
+                // Read IR sensor values.
+                left = left_sensor.read();
+                right = right_sensor.read();
+                left_side = left_side_sensor.read();
+                right_side = right_side_sensor.read();
+                // Calculate whether or not there are walls on either side.
+                is_left_wall = is_side_wall(left_side, LEFT_WALL_DIST);
+                is_right_wall = is_side_wall(right_side, RIGHT_WALL_DIST);
+                // If there is no wall read set to open and maintain. If there is a wall, maintain current state.
+                // Must use further verification to make sure there is no opening.
+                left_opening |= !is_left_wall;
+                right_opening |= !is_right_wall;
 
-				// Write blue high while using IR for PID.
-    	        blue.write(ir_pid);
-				// Determining which direction to drive next.
-    	        int pos = (left_encoder.count() + right_encoder.count()) / 2;
+                // Write blue high while using IR for PID.
+                //blue.write(ir_pid);
+                // Determining which direction to drive next.
+                int pos = (left_encoder.count() + right_encoder.count()) / 2;
+                if(pos > (CELL_LENGTH * (cell_count + 1))) {
+                    cell_count++;
+                    is_green = !is_green;
+                    //green.write(is_green);
+                   /*
+                    if(sw2.read() || (sw3.read() && (rand() % 2))) {
+                        bool only_one = left_opening ^ right_opening;
+                        if(!sw4.read() || only_one) {
+                            if(left_opening) {
+                                mode = LEFT;
+                            } else if(right_opening) {
+                                mode = RIGHT;
+                            }
+                        }
+                    }
+                   */
+                    left_opening = false;
+                    right_opening = false;
+                }
+                if(is_front_wall(left, right, FRONT_WALL_DIST)) {
+                    if(left_opening) {
+                        mode = LEFT;
+                    } else if(right_opening) {
+                        mode = RIGHT;
+                    } else if(rand() % 2) {
+                        mode = LEFT;
+                    } else {
+                        mode = RIGHT;
+                    }
+                }
+                if(ir_pid && (!is_left_wall || !is_right_wall)) {
+                    ir_pid = false;
+                } else if(!ir_pid && (is_left_wall && is_right_wall)) {
+                    ir_pid = true;
+                }
+            }
+            // Handling if current state is backward.
+            else if (mode == BACKWARD)
+            {
+                
+            }
 
-				// Handling if current state is forward.
-				if (mode == FORWARD)
-				{
-    	       		 if(pos > (CELL_LENGTH * (cell_count + 1))) {
-    	       		     cell_count++;
-    	       		     is_green = !is_green;
-    	       		     green.write(is_green);
-			   		 	/*
-    	       		     if(sw2.read() || (sw3.read() && (rand() % 2))) {
-    	       		         bool only_one = left_opening ^ right_opening;
-    	       		         if(!sw4.read() || only_one) {
-    	       		             if(left_opening) {
-    	       		                 mode = LEFT;
-    	       		             } else if(right_opening) {
-    	       		                 mode = RIGHT;
-    	       		             }
-    	       		         }
-    	       		     }
-			   		 	*/
-    	       		     left_opening = false;
-    	       		     right_opening = false;
-    	       		 }
-    	       		 if(is_front_wall(left, right, FRONT_WALL_DIST)) {
-    	       		     if(left_opening) {
-    	       		         mode = LEFT;
-    	       		     } else if(right_opening) {
-    	       		         mode = RIGHT;
-						 } else if(rand() % 2) {
-							 mode = LEFT;
-    	       		     } else {
-    	       		         mode = RIGHT;
-    	       		     }
-    	       		 }
-    	       		 if(ir_pid && (!is_left_wall || !is_right_wall)) {
-    	       		     ir_pid = false;
-    	       		 } else if(!ir_pid && (is_left_wall && is_right_wall)) {
-    	       		     ir_pid = true;
-    	       		 }
-				}
-				// Handling if current state is backward.
-				else if (mode == BACKWARD)
-				{
-					
-				}
-
-				// Switch to handle next movement (actual drive code).
-    	        switch(mode) {
-    	            case FORWARD:
-    	                forward(is_left_wall, is_right_wall, left_side, right_side);
-    	                break;
-    	            case LEFT:
-    	            case RIGHT:
-    	            case FLIP:
-	                    if(turn(mode)) {
-	                        mode = FORWARD;
-	                        left_opening = false;
-	                        right_opening = false;
-	                        cell_count = 0;
-	                        left_encoder.reset();
-	                        right_encoder.reset();
-	                        ir_controller.reset();
-	                        combined_controller.reset();
-	                    }
-	                    break;
-					case STOP:
-                    	stop();
-                    	break;
-					case BACKWARD:
-						backward();
-						break;
-    	        }
-			}
-
+            // Switch to handle next movement (actual drive code).
+            switch(mode) {
+                case INIT:
+                    if(init()) {
+                        mode = FLIP;
+                    }
+                    break;
+                case FORWARD:
+                    forward(is_left_wall, is_right_wall, left_side, right_side);
+                    break;
+                case LEFT:
+                case RIGHT:
+                case FLIP:
+                    if(turn(mode)) {
+                        mode = FORWARD;
+                        left_opening = false;
+                        right_opening = false;
+                        cell_count = 0;
+                        left_encoder.reset();
+                        right_encoder.reset();
+                        ir_controller.reset();
+                        combined_controller.reset();
+                    }
+                    break;
+                case STOP:
+                    stop();
+                    break;
+                case BACKWARD:
+                    backward();
+                    break;
+            }
         } else {
             brake();
 #ifdef SERIAL_ENABLE
@@ -286,6 +252,48 @@ int main()
 			wait(DEBUG_WAIT_TIME);
 #endif
         }
+    }
+}
+
+// Performs one iteration of the initialization function. Must be repeatedly called until complete.
+// Returns true if initialization is complete, false otherwise.
+bool init()
+{
+    // Drive half a cell backwards and calibrate.
+    static int step = 0;
+    int pos;
+    switch(step) {
+        case 0:
+            backward();
+            pos = std::abs((left_encoder.count() + right_encoder.count()) / 2);	
+            if(pos > (CELL_LENGTH/2)) {
+                step++;
+            }
+            return false;
+        case 1:
+            if(stop()) {
+                left_side_sensor.calibrate();
+                right_side_sensor.calibrate();
+                step++;
+            }
+            return false;
+        case 2:
+            backward();
+            pos = std::abs((left_encoder.count() + right_encoder.count()) / 2);
+            if(pos > (CELL_LENGTH)) {
+                cell_count++;
+                step++;
+            }
+            return false;
+        case 3:
+            if(stop()) {
+                step = 0;
+                return true;
+            }
+            return false;
+        // if this happens some shit is seriously broken
+        default:
+            return false;
     }
 }
 
@@ -321,8 +329,10 @@ void forward(bool is_left_wall, bool is_right_wall, double left_side, double rig
 // Drives backwards half a cell (used for initial IR setup and aligning on walls after reaching dead end).
 void backward()
 {
+    blue.write(1);
+    green.write(0);
     const int BASE_SPEED = 20;
-    const int MAX_SPEED = 60;
+    const int MAX_SPEED = 100;
     int left_speed = BASE_SPEED;
     int right_speed = BASE_SPEED;
     int correction;
@@ -351,6 +361,8 @@ void brake()
 // Returns true if the stop is complete.
 bool stop()
 {
+    green.write(1);
+    blue.write(0);
     static bool initialized = false;
     static int stop_point;
     if(!initialized) {
@@ -368,9 +380,12 @@ bool stop()
 // LEFT → 90° to the left
 // RIGHT → 90° to the right
 // FLIP → 180° turn to the right
+// All other parameters are undefined (do not use)
 // Returns true if the turn is complete
-bool turn(Direction direction)
+bool turn(Mode direction)
 {
+    blue.write(0);
+    green.write(0);
     // each wheel must turn this much (in opposite directions) to make a 90° turn
     const int ENCODER_COUNT = 289;
     static bool initialized = false;
