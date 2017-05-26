@@ -146,7 +146,7 @@ int main()
 		// Disable mouse until switch one is on.
         if(!kill_switch.read()) 
 		{
-			if (setup == true)
+			if (setup)
 			{
 				// Drive half a cell backwards and calibrate.
 				while(true) {
@@ -154,7 +154,7 @@ int main()
 					backward();
 			
 					if(pos > (CELL_LENGTH/2)) {
-						stop();
+						brake();
 						break;
 					}
 				}
@@ -170,7 +170,7 @@ int main()
 			
 					if(pos > (CELL_LENGTH)) {
 						cell_count++;
-						stop();
+						brake();
 						setup = false;
 						break;
 				    }
@@ -224,8 +224,10 @@ int main()
     	       		         mode = LEFT;
     	       		     } else if(right_opening) {
     	       		         mode = RIGHT;
+						 } else if(rand() % 2) {
+							 mode = LEFT;
     	       		     } else {
-    	       		         mode = FLIP;
+    	       		         mode = RIGHT;
     	       		     }
     	       		 }
     	       		 if(ir_pid && (!is_left_wall || !is_right_wall)) {
@@ -320,7 +322,7 @@ void forward(bool is_left_wall, bool is_right_wall, double left_side, double rig
 void backward()
 {
     const int BASE_SPEED = 20;
-    const int MAX_SPEED = 100;
+    const int MAX_SPEED = 60;
     int left_speed = BASE_SPEED;
     int right_speed = BASE_SPEED;
     int correction;
