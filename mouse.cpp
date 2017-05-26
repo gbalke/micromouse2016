@@ -42,7 +42,7 @@ TimerEncoder left_encoder(HAL::Timer::TIMER2, PA_1, PA_0);
 InterruptEncoder right_encoder(PB_3, PA_15, InterruptEncoder::X4);
 
 // DIP switch setup.
-DigitalInput sw1(PB_12);
+DigitalInput kill_switch(PB_12);
 DigitalInput sw2(PB_1);
 DigitalInput sw3(PB_0);
 DigitalInput sw4(PA_7);
@@ -59,19 +59,23 @@ DistanceSensor left_side_sensor(PC_2, PB_7);
 DistanceSensor right_side_sensor(PC_1, PB_9);
 
 // PID object setup.
-Pid combined_controller(20, 0.0, 5);
+Pid combined_controller(20, 0.03, 5);
 Pid ir_controller(800, 0, 100);
 Pid left_turn_controller(10, 0, 50);
 Pid right_turn_controller(10, 0, 50);
 Pid backward_controller(20,0.0,5);
 
-// Establishing Direction enum.
+// Different modes supported by the mouse. Setting mode to one of these will cause the
+// corresponding action
 enum Direction {
     FORWARD = 0,
     LEFT = -1,
     RIGHT = 1,
     FLIP = 2,
-	BACKWARD = 3
+	BACKWARD,
+	// don't use STOP with turn()
+    STOP,
+
 };
 
 // Const defines.
@@ -81,13 +85,14 @@ const static float LEFT_WALL_DIST = 1.5;
 const static float RIGHT_WALL_DIST = 1.5;
 const static float FRONT_WALL_DIST = 1;
 
-// Function Prototypes.
 double battery_level();
 bool is_side_wall(double reading, double distance);
 bool is_front_wall(double left, double right, double distance);
 void forward(bool is_left_wall, bool is_right_wall, double left_side, double right_side);
 void backward();
-void stop();
+bool stop();
+void brake();
+bool set_pos(int left_pos, int right_pos);
 bool turn(Direction direction);
 
 int main()
@@ -103,7 +108,6 @@ int main()
     int cell_count = 0;
 	// Will be true when there are walls on both sides to be used for PID.
     bool ir_pid = true;
-    int stop_counter = 0;
 	// Bools keeping track of whether or not there is an opening to the left and right of the mouse.
     bool left_opening = false;
     bool right_opening = false;
@@ -131,6 +135,7 @@ int main()
     Direction mode = FLIP;
 
     while(true) {
+
 		// Check if battery level is below threshhold voltage.
         if(battery_level() < THRESHOLD_VOLTAGE) {
             red.write(1);
@@ -139,16 +144,13 @@ int main()
         }
 		
 		// Disable mouse until switch one is on.
-        if(!sw1.read()) {
-
+        if(!kill_switch.read()) 
+		{
 			if (setup == true)
 			{
 				// Drive half a cell backwards and calibrate.
 				while(true) {
-					if(!sw1.read())
-					{
-						int pos = std::abs((left_encoder.count() + right_encoder.count()) / 2);
-					
+					int pos = std::abs((left_encoder.count() + right_encoder.count()) / 2);	
 						backward();
 			
 						if(pos > (CELL_LENGTH/2)) {
@@ -170,11 +172,12 @@ int main()
 					if(pos > (CELL_LENGTH)) {
 						cell_count++;
 						stop();
+						setup = false;
 						break;
 				    }
 				}
 
-				setup = false;
+				
 			}
 			else {
 				// Read IR sensor values.
@@ -246,32 +249,28 @@ int main()
     	            case LEFT:
     	            case RIGHT:
     	            case FLIP:
-    	                // have to wait for the mouse to stop to allow for an accurate turn
-    	                if(stop_counter < 1000) {
-    	                    stop();
-    	                    left_encoder.reset();
-    	                    right_encoder.reset();
-    	                    stop_counter++;
-    	                } else if(turn(mode)) {
-    	                    mode = FORWARD;
-    	                    stop_counter = 0;
-    	                    left_opening = false;
-    	                    right_opening = false;
-    	                    cell_count = 0;
-    	                    left_encoder.reset();
-    	                    right_encoder.reset();
-    	                    left_turn_controller.reset();
-    	                    right_turn_controller.reset();
-    	                    ir_controller.reset();
-    	                    combined_controller.reset();
-    	                }
-    	                break;
+	                    if(turn(mode)) {
+	                        mode = FORWARD;
+	                        left_opening = false;
+	                        right_opening = false;
+	                        cell_count = 0;
+	                        left_encoder.reset();
+	                        right_encoder.reset();
+	                        ir_controller.reset();
+	                        combined_controller.reset();
+	                    }
+	                    break;
+					case STOP:
+                    	stop();
+                    	break;
 					case BACKWARD:
+						backward();
 						break;
     	        }
 			}
+
         } else {
-            stop();
+            brake();
 #ifdef SERIAL_ENABLE
 #ifdef ENC_DEBUG
             serial.printf("l %d\r\n", left_encoder.count());
@@ -289,13 +288,11 @@ int main()
     }
 }
 
-void stop()
-{
-    left_motor.brake();
-    right_motor.brake();
-}
-
-// Drives forward one cell.
+// Performs one iteration of the forward moving PID.
+// is_left_wall: is there a visible wall to the left of the mouse
+// is_right_wall: is there a visible wall to the right of the mouse
+// left_side: IR reading from the left_side (unused if !is_left_wall)
+// right_side: IR reading from the right_side (unused if !is_right_wall)
 void forward(bool is_left_wall, bool is_right_wall, double left_side, double right_side)
 {
     const int BASE_SPEED = 20;
@@ -304,7 +301,7 @@ void forward(bool is_left_wall, bool is_right_wall, double left_side, double rig
     int right_speed = BASE_SPEED;
     int correction;
     if(is_left_wall && is_right_wall) {
-    correction = (int)ir_controller.correction(left_side-right_side);
+        correction = (int)ir_controller.correction(left_side - right_side);
     } else {
         correction = (int)combined_controller.correction(left_encoder.count() - right_encoder.count());
     }
@@ -318,6 +315,7 @@ void forward(bool is_left_wall, bool is_right_wall, double left_side, double rig
     left_motor.set_speed(left_speed);
     right_motor.set_speed(right_speed);
 }
+
 
 // Drives backwards half a cell (used for initial IR setup and aligning on walls after reaching dead end).
 void backward()
@@ -340,33 +338,85 @@ void backward()
     right_motor.set_speed(-right_speed);
 }
 
-// Turns the mouse
+// Disables the motors. Only use if you absolutely need the motors to stop immediately:
+// normally stop() should be used to achieve a smooth and controlled stop.
+void brake()
+{
+    left_motor.brake();
+    right_motor.brake();
+}
+
+// Performs one iteration of a PID stop. Must be repeated until the stop is complete.
+// Returns true if the stop is complete.
+bool stop()
+{
+    static bool initialized = false;
+    static int stop_point;
+    if(!initialized) {
+        stop_point = (left_encoder.count() + right_encoder.count()) / 2;
+        initialized = true;
+    }
+    bool ret = set_pos(stop_point, stop_point);
+    if(ret) {
+        initialized = false;
+    }
+    return ret;
+}
+
+// Performs one iteration of a PID turn. Must be repeated until the turn is complete.
 // LEFT → 90° to the left
 // RIGHT → 90° to the right
 // FLIP → 180° turn to the right
 // Returns true if the turn is complete
 bool turn(Direction direction)
 {
+    // each wheel must turn this much (in opposite directions) to make a 90° turn
+    const int ENCODER_COUNT = 289;
+    static bool initialized = false;
+    if(!initialized) {
+        // Turns are smoother if we stop first.
+        initialized = stop();
+        if(initialized) {
+            left_encoder.reset();
+            right_encoder.reset();
+        }
+        return false;
+    }
+    bool ret = set_pos(direction * ENCODER_COUNT, -1 * direction * ENCODER_COUNT);
+    if(ret) {
+        initialized = false;
+    }
+    return ret;
+}
+
+// Performs one iteration of the position-setting PID loop. Should normally be called though a
+// wrapper function such as stop() or turn(). Do not use for main movement.
+// Returns true if the PID is complete.
+bool set_pos(int left_pos, int right_pos)
+{
     // be careful about burning out motors
     const int MAX_SPEED = 200;
-    // each wheel must turn this much to make a 90° turn
-    const int ENCODER_COUNT = 284;
+    static Pid left_position_controller(20, 0, 80);
+    static Pid right_position_controller(20, 0, 80);
     int left_speed, right_speed;
-    // sign of direction is reversed for each error so that wheels turn in opposite directions
-    int left_error = left_encoder.count() - direction * ENCODER_COUNT;
-    int right_error = right_encoder.count() + direction * ENCODER_COUNT;
-    int left_correction = (int)left_turn_controller.correction(left_error);
-    int right_correction = (int)right_turn_controller.correction(right_error);
-    // We must reverse each correction so the wheels turn the correct direction
-    right_speed = -1 * right_correction;
-    left_speed = -1 * left_correction;
+    int left_error = left_pos - left_encoder.count();
+    int right_error = right_pos - right_encoder.count();
+    int left_correction = (int)left_position_controller.correction(left_error);
+    int right_correction = (int)right_position_controller.correction(right_error);
+    right_speed = right_correction;
+    left_speed = left_correction;
     right_speed = (right_speed > MAX_SPEED) ? MAX_SPEED : right_speed;
     right_speed = (right_speed < -1 * MAX_SPEED) ? -1 * MAX_SPEED : right_speed;
     left_speed = (left_speed > MAX_SPEED) ? MAX_SPEED : left_speed;
     left_speed = (left_speed < -1 * MAX_SPEED) ? -1 * MAX_SPEED : left_speed;
     left_motor.set_speed(left_speed);
     right_motor.set_speed(right_speed);
-    return left_correction == 0 && right_correction == 0;
+    bool ret = left_correction == 0 && right_correction == 0;
+    if(ret) {
+        left_position_controller.reset();
+        right_position_controller.reset();
+    }
+    return ret;
 }
 
 // Returns the battery voltage level in Volts
