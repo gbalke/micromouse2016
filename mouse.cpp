@@ -15,7 +15,7 @@
 // Uncomment SERIAL_ENABLE to enable hardware serial.
 // Uncomment SERIAL_ENABLE and BLUETOOTH to enable bluetooth serial.
 #define SERIAL_ENABLE
-#define BLUETOOTH
+//#define BLUETOOTH
 const static float DEBUG_WAIT_TIME = 1;	// Wait 2 seconds between each print loop.
 
 // Serial debug output options.
@@ -73,9 +73,9 @@ enum Mode {
 
 const static float THRESHOLD_VOLTAGE = 7.4; // low voltage threshold
 const int CELL_LENGTH = 806; // Number of encoder counts in one cell.
-const static float LEFT_WALL_DIST = 1;
-const static float RIGHT_WALL_DIST = 1;
-const static float FRONT_WALL_DIST = 1;
+const static float LEFT_WALL_DIST = 1.108;
+const static float RIGHT_WALL_DIST = 1.105;
+const static float FRONT_WALL_DIST = 1.9;
 
 double battery_level();
 bool is_side_wall(double reading, double distance);
@@ -106,8 +106,6 @@ int main()
     // Mouse should be in the middle of the cell
     left_sensor.calibrate();
     right_sensor.calibrate();
-    left_side_sensor.calibrate();
-    right_side_sensor.calibrate();
 
 	
     Mode mode = INIT;
@@ -170,6 +168,7 @@ int main()
 bool init()
 {
     static int step = 0;
+    static int wait_counter = 0;
 
     int pos;
     switch(step) {
@@ -183,6 +182,10 @@ bool init()
             return false;
         case 1:
             if(stop()) {
+                wait_counter++;
+            }
+            if(wait_counter == 10) {
+                wait_counter = 0;
                 left_side_sensor.calibrate();
                 right_side_sensor.calibrate();
                 step++;
@@ -213,7 +216,7 @@ bool init()
 Mode forward()
 {
     static Pid encoder_controller(20, 0.03, 5);
-    static Pid ir_controller(800, 0, 1200);
+    static Pid ir_controller(2000, 0, 4000);
     static bool left_opening = false;
     static bool right_opening = false;
     static bool is_green = false;
@@ -234,7 +237,7 @@ Mode forward()
     if(pos > (CELL_LENGTH * (cell_count + 1))) {
         cell_count++;
         is_green = !is_green;
-        green.write(is_green);
+        //green.write(is_green);
        /*
         if(sw2.read() || (sw3.read() && (rand() % 2))) {
             bool only_one = left_opening ^ right_opening;
@@ -273,7 +276,7 @@ Mode forward()
     int right_speed = BASE_SPEED;
     int correction;
     bool ir_pid = is_left_wall && is_right_wall;
-    blue.write(ir_pid);
+    green.write(ir_pid);
     if(ir_pid) {
         correction = (int)ir_controller.correction(left_side - right_side);
     } else {
