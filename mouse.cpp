@@ -14,13 +14,13 @@
 // Enable Serial Communications
 // Uncomment SERIAL_ENABLE to enable hardware serial.
 // Uncomment SERIAL_ENABLE and BLUETOOTH to enable bluetooth serial.
-//#define SERIAL_ENABLE
-//#define BLUETOOTH
+#define SERIAL_ENABLE
+#define BLUETOOTH
 const static float DEBUG_WAIT_TIME = 1;	// Wait 2 seconds between each print loop.
 
 // Serial debug output options.
-//#define IR_DEBUG	// IR Sensors 
-#define ENC_DEBUG	// Encoders
+#define IR_DEBUG	// IR Sensors 
+//#define ENC_DEBUG	// Encoders
 
 #if !defined(BLUETOOTH) && defined(SERIAL_ENABLE)
 Serial serial(PA_2, PA_3);
@@ -73,8 +73,8 @@ enum Mode {
 
 const static float THRESHOLD_VOLTAGE = 7.4; // low voltage threshold
 const int CELL_LENGTH = 806; // Number of encoder counts in one cell.
-const static float LEFT_WALL_DIST = 1.5;
-const static float RIGHT_WALL_DIST = 1.5;
+const static float LEFT_WALL_DIST = 1;
+const static float RIGHT_WALL_DIST = 1;
 const static float FRONT_WALL_DIST = 1;
 
 double battery_level();
@@ -106,6 +106,8 @@ int main()
     // Mouse should be in the middle of the cell
     left_sensor.calibrate();
     right_sensor.calibrate();
+    left_side_sensor.calibrate();
+    right_side_sensor.calibrate();
 
 	
     Mode mode = INIT;
@@ -254,10 +256,8 @@ Mode forward()
             mode = LEFT;
         } else if(right_opening) {
             mode = RIGHT;
-        } else if(rand() % 2) {
-            mode = LEFT;
         } else {
-            mode = RIGHT;
+            mode = FLIP;
         }
         left_opening = false;
         right_opening = false;
@@ -377,6 +377,7 @@ bool set_pos(int left_pos, int right_pos)
     const int MAX_SPEED = 200;
     static Pid left_position_controller(20, 0, 80);
     static Pid right_position_controller(20, 0, 80);
+    static int stable_count = 0;
 
     int left_speed, right_speed;
     int left_error = left_pos - left_encoder.count();
@@ -391,12 +392,16 @@ bool set_pos(int left_pos, int right_pos)
     left_speed = (left_speed < -1 * MAX_SPEED) ? -1 * MAX_SPEED : left_speed;
     left_motor.set_speed(left_speed);
     right_motor.set_speed(right_speed);
-    bool ret = left_correction == 0 && right_correction == 0;
-    if(ret) {
+    if(left_correction == 0 && right_correction == 0) {
+        stable_count++;
+    }
+    if(stable_count == 500) {
         left_position_controller.reset();
         right_position_controller.reset();
+        stable_count = 0;
+        return true;
     }
-    return ret;
+    return false;
 }
 
 // Returns the battery voltage level in Volts
