@@ -11,8 +11,8 @@ class Solver
 public:
 	enum DIRECTION {
 		NORTH = 0,
-		SOUTH,
 		EAST,
+		SOUTH,
 		WEST
 	};
 	
