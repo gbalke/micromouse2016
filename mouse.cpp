@@ -15,7 +15,7 @@
 // Uncomment SERIAL_ENABLE to enable hardware serial.
 // Uncomment SERIAL_ENABLE and BLUETOOTH to enable bluetooth serial.
 #define SERIAL_ENABLE
-//#define BLUETOOTH
+#define BLUETOOTH
 const static float DEBUG_WAIT_TIME = 1;	// Wait 2 seconds between each print loop.
 
 // Serial debug output options.
@@ -225,8 +225,8 @@ Mode forward()
     static bool ir_pid = true;
     const int LEFT_WALL_THRESHOLD = 870;
     const int RIGHT_WALL_THRESHOLD = 2450;
-    const int LEFT_FRONT_WALL_THRESHOLD = 3300;
-    const int RIGHT_FRONT_WALL_THRESHOLD = 3430;
+    const int LEFT_FRONT_WALL_THRESHOLD = 3500;
+    const int RIGHT_FRONT_WALL_THRESHOLD = 3500;
     const int BASE_SPEED = 20;
     const int MAX_SPEED = 100;
 
@@ -265,7 +265,7 @@ Mode forward()
     if(pos > (CELL_LENGTH * (cell_count + 1))) {
         cell_count++;
         is_green = !is_green;
-        //green.write(is_green);
+        green.write(is_green);
        /*
         if(sw2.read() || (sw3.read() && (rand() % 2))) {
             bool only_one = left_opening ^ right_opening;
@@ -293,7 +293,7 @@ Mode forward()
         ir_pid = true;
         ir_controller.reset();
     }
-    green.write(ir_pid);
+    //green.write(ir_pid);
     if(ir_pid) {
         correction = (int)ir_controller.correction(left_side - right_side);
     } else {
