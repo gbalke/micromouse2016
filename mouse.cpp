@@ -15,7 +15,7 @@
 // Uncomment SERIAL_ENABLE to enable hardware serial.
 // Uncomment SERIAL_ENABLE and BLUETOOTH to enable bluetooth serial.
 #define SERIAL_ENABLE
-#define BLUETOOTH
+//#define BLUETOOTH
 const static float DEBUG_WAIT_TIME = 1;	// Wait 2 seconds between each print loop.
 
 // Serial debug output options.
@@ -69,16 +69,13 @@ enum Mode {
     LEFT = -1,
     RIGHT = 1,
     FLIP = 2,
+    STOP = 4,
 };
 
 const static float THRESHOLD_VOLTAGE = 7.4; // low voltage threshold
-const int CELL_LENGTH = 806; // Number of encoder counts in one cell.
-const static float LEFT_WALL_DIST = 1.14;
-const static float RIGHT_WALL_DIST = 1.13;
-const static float FRONT_WALL_DIST = 1.2;
+const int CELL_LENGTH = 826; // Number of encoder counts in one cell.
 
 double battery_level();
-bool is_side_wall(double reading, double distance);
 bool is_front_wall(double left, double right, double distance);
 Mode forward();
 bool init();
@@ -106,9 +103,11 @@ int main()
     // Mouse should be in the middle of the cell
     left_sensor.calibrate();
     right_sensor.calibrate();
+    left_side_sensor.calibrate();
+    right_side_sensor.calibrate();
 
 	
-    Mode mode = INIT;
+    Mode mode = FORWARD;
 
     // NOTE: This event loop must run very fast, so do not put any long-running
     // or blocking functions in this loop. Instead, break those functions into
@@ -129,10 +128,10 @@ int main()
             serial.printf("r %d\r\n", right_encoder.count());
 #endif
 #ifdef IR_DEBUG
-			serial.printf("l %f\r\n", (left_sensor.read()));
-            serial.printf("r %f\r\n", (right_sensor.read()));
-            serial.printf("ls %f\r\n", (left_side_sensor.read()));
-            serial.printf("rs %f\r\n", (right_side_sensor.read()));
+			serial.printf("l %d\r\n", (left_sensor.raw_read() - left_sensor.raw_ambient()));
+            serial.printf("r %d\r\n", (right_sensor.raw_read() - right_sensor.raw_ambient()));
+            serial.printf("ls %d\r\n", (left_side_sensor.raw_read()));
+            serial.printf("rs %d\r\n", (right_side_sensor.raw_read()));
 #endif
 			wait(DEBUG_WAIT_TIME);
 #endif
@@ -158,6 +157,9 @@ int main()
                     left_encoder.reset();
                     right_encoder.reset();
                 }
+                break;
+            case STOP:
+                stop();
                 break;
         }
     }
@@ -215,25 +217,35 @@ bool init()
 // Returns the next mode that the mouse should enter.
 Mode forward()
 {
-    static Pid encoder_controller(20, 0.03, 5);
-    static Pid ir_controller(2000, 0, 4000);
+    static Pid encoder_controller(10, 0.05, 100);
+    static Pid ir_controller(3000, 0, 10000);
     static bool left_opening = false;
     static bool right_opening = false;
     static bool is_green = false;
+    static bool ir_pid = true;
+    const int LEFT_WALL_THRESHOLD = 870;
+    const int RIGHT_WALL_THRESHOLD = 2450;
+    const int LEFT_FRONT_WALL_THRESHOLD = 3300;
+    const int RIGHT_FRONT_WALL_THRESHOLD = 3430;
+    const int BASE_SPEED = 20;
+    const int MAX_SPEED = 100;
 
     // Read IR sensor values.
     double left = left_sensor.read();
     double right = right_sensor.read();
     double left_side = left_side_sensor.read();
     double right_side = right_side_sensor.read();
-    bool is_left_wall = is_side_wall(left_side, LEFT_WALL_DIST);
-    bool is_right_wall = is_side_wall(right_side, RIGHT_WALL_DIST);
+    // we use raw values for wall detection thresholds because they are more
+    // consistent between runs
+    bool is_left_wall = left_side_sensor.raw_read() >= LEFT_WALL_THRESHOLD;
+    bool is_right_wall = right_side_sensor.raw_read() >= RIGHT_WALL_THRESHOLD;
     // once we see an opening, we want to remember it until we reach the
     // next cell, so we store it these *_opening variables
     left_opening |= !is_left_wall;
     right_opening |= !is_right_wall;
 
-    if(is_front_wall(left, right, FRONT_WALL_DIST)) {
+    if(left_sensor.raw_read() - left_sensor.raw_ambient() >= LEFT_FRONT_WALL_THRESHOLD ||
+            right_sensor.raw_read() - right_sensor.raw_ambient() >= RIGHT_FRONT_WALL_THRESHOLD) {
         Mode mode;
         if(left_opening) {
             mode = LEFT;
@@ -270,13 +282,17 @@ Mode forward()
         right_opening = false;
     }
 
-    const int BASE_SPEED = 20;
-    const int MAX_SPEED = 100;
-
     int left_speed = BASE_SPEED;
     int right_speed = BASE_SPEED;
     int correction;
-    bool ir_pid = is_left_wall && is_right_wall && !left_opening && !right_opening;
+    bool can_use_walls = is_left_wall && is_right_wall && !left_opening && !right_opening;
+    if(ir_pid && !can_use_walls) {
+        ir_pid = false;
+        encoder_controller.reset();
+    } else if(!ir_pid && can_use_walls) {
+        ir_pid = true;
+        ir_controller.reset();
+    }
     green.write(ir_pid);
     if(ir_pid) {
         correction = (int)ir_controller.correction(left_side - right_side);
@@ -354,7 +370,7 @@ bool turn(Mode direction)
 {
     static bool initialized = false;
     // each wheel must turn this much (in opposite directions) to make a 90° turn
-    const int ENCODER_COUNT = 289;
+    const int ENCODER_COUNT = 285;
 
     if(!initialized) {
         // Turns are smoother if we stop first.
@@ -414,11 +430,6 @@ double battery_level()
     AnalogIn voltage_divider(PC_5);
     // value found experimentally
     return (8.3 / 54700) * voltage_divider.read_u16();
-}
-
-bool is_side_wall(double reading, double distance)
-{
-    return reading < distance;
 }
 
 bool is_front_wall(double left, double right, double distance)
