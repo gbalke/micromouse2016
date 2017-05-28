@@ -15,7 +15,7 @@
 // Uncomment SERIAL_ENABLE to enable hardware serial.
 // Uncomment SERIAL_ENABLE and BLUETOOTH to enable bluetooth serial.
 #define SERIAL_ENABLE
-//#define BLUETOOTH
+#define BLUETOOTH
 const static float DEBUG_WAIT_TIME = 1;	// Wait 2 seconds between each print loop.
 
 // Serial debug output options.
@@ -73,9 +73,9 @@ enum Mode {
 
 const static float THRESHOLD_VOLTAGE = 7.4; // low voltage threshold
 const int CELL_LENGTH = 806; // Number of encoder counts in one cell.
-const static float LEFT_WALL_DIST = 1.108;
-const static float RIGHT_WALL_DIST = 1.105;
-const static float FRONT_WALL_DIST = 1.9;
+const static float LEFT_WALL_DIST = 1.14;
+const static float RIGHT_WALL_DIST = 1.13;
+const static float FRONT_WALL_DIST = 1.2;
 
 double battery_level();
 bool is_side_wall(double reading, double distance);
@@ -233,6 +233,22 @@ Mode forward()
     left_opening |= !is_left_wall;
     right_opening |= !is_right_wall;
 
+    if(is_front_wall(left, right, FRONT_WALL_DIST)) {
+        Mode mode;
+        if(left_opening) {
+            mode = LEFT;
+        } else if(right_opening) {
+            mode = RIGHT;
+        } else {
+            mode = FLIP;
+        }
+        left_opening = false;
+        right_opening = false;
+        ir_controller.reset();
+        encoder_controller.reset();
+        return mode;
+    }
+
     int pos = (left_encoder.count() + right_encoder.count()) / 2;
     if(pos > (CELL_LENGTH * (cell_count + 1))) {
         cell_count++;
@@ -253,21 +269,6 @@ Mode forward()
         left_opening = false;
         right_opening = false;
     }
-    if(is_front_wall(left, right, FRONT_WALL_DIST)) {
-        Mode mode;
-        if(left_opening) {
-            mode = LEFT;
-        } else if(right_opening) {
-            mode = RIGHT;
-        } else {
-            mode = FLIP;
-        }
-        left_opening = false;
-        right_opening = false;
-        ir_controller.reset();
-        encoder_controller.reset();
-        return mode;
-    }
 
     const int BASE_SPEED = 20;
     const int MAX_SPEED = 100;
@@ -275,7 +276,7 @@ Mode forward()
     int left_speed = BASE_SPEED;
     int right_speed = BASE_SPEED;
     int correction;
-    bool ir_pid = is_left_wall && is_right_wall;
+    bool ir_pid = is_left_wall && is_right_wall && !left_opening && !right_opening;
     green.write(ir_pid);
     if(ir_pid) {
         correction = (int)ir_controller.correction(left_side - right_side);
