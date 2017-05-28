@@ -177,60 +177,16 @@ int main()
 // Returns true if initialization is complete, false otherwise.
 bool init()
 {
-	if (forward(CELL_LENGTH/2) == STOP)
+	if (forward(CELL_LENGTH/4) == STOP)
 		return true;
 	return false;
-	/*
-    static int step = 0;
-    static int wait_counter = 0;
-
-    int pos;
-    switch(step) {
-        case 0:
-            backward();
-            pos = std::abs((left_encoder.count() + right_encoder.count()) / 2);	
-            if(pos > (CELL_LENGTH/2)) {
-                backward_controller.reset();
-                step++;
-            }
-            return false;
-        case 1:
-            if(stop()) {
-                wait_counter++;
-            }
-            if(wait_counter == 10) {
-                wait_counter = 0;
-                left_side_sensor.calibrate();
-                right_side_sensor.calibrate();
-                step++;
-            }
-            return false;
-        case 2:
-            backward();
-            pos = std::abs((left_encoder.count() + right_encoder.count()) / 2);
-            if(pos > (CELL_LENGTH)) {
-                backward_controller.reset();
-                cell_count++;
-                step++;
-            }
-            return false;
-        case 3:
-            if(stop()) {
-                step = 0;
-                return true;
-            }
-            return false;
-        default:
-            return false;
-    }
-	*/
 }
 
 // Performs one iteration of the forward moving PID.
 // Returns the next mode that the mouse should enter.
 Mode forward(int dist)
 {
-    static Pid encoder_controller(10, 0.05, 100);
+    static Pid encoder_controller(10, 0.05, 50);
     static Pid ir_controller(3000, 0, 14000); // 3000,0,10000
 	static Cell currCell = {};
 	static Cell nextCell = {};
@@ -238,7 +194,7 @@ Mode forward(int dist)
     static bool ir_pid = true;
     const int LEFT_WALL_THRESHOLD = 870;
     const int RIGHT_WALL_THRESHOLD = 2450;
-    const int LEFT_FRONT_WALL_THRESHOLD = 3600;
+    const int LEFT_FRONT_WALL_THRESHOLD = 3550;
     const int RIGHT_FRONT_WALL_THRESHOLD = 3600;
 	const int CELL_TOLERANCE = CELL_LENGTH - 200;
     const int BASE_SPEED = 20;
@@ -261,10 +217,12 @@ Mode forward(int dist)
 	int pos = (left_encoder.count() + right_encoder.count()) / 2;
 
 
-	if((dist < CELL_LENGTH) && ((pos % CELL_LENGTH) > dist))
+	if((dist < CELL_LENGTH) && (pos > dist))
 	{
 		ir_controller.reset();
 		encoder_controller.reset();
+        left_encoder.reset();
+        right_encoder.reset();
 		return STOP;
 	}
 
@@ -413,7 +371,7 @@ bool turn(Mode direction)
 {
     static bool initialized = false;
     // each wheel must turn this much (in opposite directions) to make a 90° turn
-    const int ENCODER_COUNT = 285;
+    const int ENCODER_COUNT = 286;
 
     if(!initialized) {
         // Turns are smoother if we stop first.
@@ -437,9 +395,9 @@ bool turn(Mode direction)
 bool set_pos(int left_pos, int right_pos)
 {
     // be careful about burning out motors
-    const int MAX_SPEED = 200;
-    static Pid left_position_controller(15, 0, 125); //20,0,80
-    static Pid right_position_controller(15, 0, 125);
+    const int MAX_SPEED = 100;
+    static Pid left_position_controller(15, 0, 50); //20,0,80
+    static Pid right_position_controller(15, 0, 50);
     static int stable_count = 0;
 
     int left_speed, right_speed;
