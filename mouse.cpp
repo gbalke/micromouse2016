@@ -29,6 +29,14 @@ Serial serial(PA_2, PA_3);
 Serial serial(PA_9, PA_10);
 #endif 
 
+// Cells keep track of walls.
+struct Cell
+{
+	bool f:1, 		// Front Wall
+		 l:1, 		// Left Wall
+		 r:1; 		// Right Wall
+};
+
 // Setting up PWM timer and handlers for the motors.
 HAL::Timer motor_timer(HAL::Timer::TIMER3, HAL::Timer::CPU);
 HAL::Timer::Channel lbwd(motor_timer, HAL::Timer::CH1, HAL::Timer::Channel::COMPARE_PWM1, PC_6);
@@ -77,7 +85,7 @@ const int CELL_LENGTH = 826; // Number of encoder counts in one cell.
 
 double battery_level();
 bool is_front_wall(double left, double right, double distance);
-Mode forward();
+Mode forward(int);
 bool init();
 void backward();
 bool stop();
@@ -107,7 +115,7 @@ int main()
     right_side_sensor.calibrate();
 
 	
-    Mode mode = FORWARD;
+    Mode mode = INIT;
 
     // NOTE: This event loop must run very fast, so do not put any long-running
     // or blocking functions in this loop. Instead, break those functions into
@@ -142,11 +150,11 @@ int main()
         switch(mode) {
             case INIT:
                 if(init()) {
-                    mode = FLIP;
+                    mode = FORWARD;
                 }
                 break;
             case FORWARD:
-                mode = forward();
+                mode = forward(CELL_LENGTH);
                 break;
             case LEFT:
             case RIGHT:
@@ -169,6 +177,10 @@ int main()
 // Returns true if initialization is complete, false otherwise.
 bool init()
 {
+	if (forward(CELL_LENGTH/2) == STOP)
+		return true;
+	return false;
+	/*
     static int step = 0;
     static int wait_counter = 0;
 
@@ -211,24 +223,26 @@ bool init()
         default:
             return false;
     }
+	*/
 }
 
 // Performs one iteration of the forward moving PID.
 // Returns the next mode that the mouse should enter.
-Mode forward()
+Mode forward(int dist)
 {
     static Pid encoder_controller(10, 0.05, 100);
-    static Pid ir_controller(3000, 0, 10000);
-    static bool left_opening = false;
-    static bool right_opening = false;
+    static Pid ir_controller(3000, 0, 14000); // 3000,0,10000
+	static Cell currCell = {};
+	static Cell nextCell = {};
     static bool is_green = false;
     static bool ir_pid = true;
     const int LEFT_WALL_THRESHOLD = 870;
     const int RIGHT_WALL_THRESHOLD = 2450;
-    const int LEFT_FRONT_WALL_THRESHOLD = 3500;
-    const int RIGHT_FRONT_WALL_THRESHOLD = 3500;
+    const int LEFT_FRONT_WALL_THRESHOLD = 3600;
+    const int RIGHT_FRONT_WALL_THRESHOLD = 3600;
+	const int CELL_TOLERANCE = CELL_LENGTH - 200;
     const int BASE_SPEED = 20;
-    const int MAX_SPEED = 100;
+    const int MAX_SPEED = 150;
 
     // Read IR sensor values.
     double left = left_sensor.read();
@@ -241,51 +255,80 @@ Mode forward()
     bool is_right_wall = right_side_sensor.raw_read() >= RIGHT_WALL_THRESHOLD;
     // once we see an opening, we want to remember it until we reach the
     // next cell, so we store it these *_opening variables
-    left_opening |= !is_left_wall;
-    right_opening |= !is_right_wall;
+    nextCell.l |= !is_left_wall;
+    nextCell.r |= !is_right_wall;
+	
+	int pos = (left_encoder.count() + right_encoder.count()) / 2;
+
+
+	if((dist < CELL_LENGTH) && ((pos % CELL_LENGTH) > dist))
+	{
+		ir_controller.reset();
+		encoder_controller.reset();
+		return STOP;
+	}
 
     if(left_sensor.raw_read() - left_sensor.raw_ambient() >= LEFT_FRONT_WALL_THRESHOLD ||
             right_sensor.raw_read() - right_sensor.raw_ambient() >= RIGHT_FRONT_WALL_THRESHOLD) {
+
+		// If the mouse has moved forward close to one cell, increment cell counter and set current cell to next cell.
+		// This accounts for when moving towards a cell does not cover a complete cell (detects walls before complete move).
+		if (pos % CELL_LENGTH > CELL_TOLERANCE)
+		{
+			cell_count++;
+			is_green = !is_green;
+        	green.write(is_green);
+			currCell = nextCell;
+		}
+
         Mode mode;
-        if(left_opening) {
+        if(currCell.l) {
             mode = LEFT;
-        } else if(right_opening) {
+        } else if(currCell.r) {
             mode = RIGHT;
         } else {
             mode = FLIP;
         }
-        left_opening = false;
-        right_opening = false;
+		
+        nextCell.l = false;
+        nextCell.r = false;
         ir_controller.reset();
         encoder_controller.reset();
+		left_encoder.reset();
+		right_encoder.reset();
         return mode;
     }
 
-    int pos = (left_encoder.count() + right_encoder.count()) / 2;
     if(pos > (CELL_LENGTH * (cell_count + 1))) {
+		Mode mode = FORWARD;
+
         cell_count++;
         is_green = !is_green;
         green.write(is_green);
-       /*
+
+
         if(sw2.read() || (sw3.read() && (rand() % 2))) {
-            bool only_one = left_opening ^ right_opening;
+            bool only_one = nextCell.l ^ nextCell.r;
             if(!sw4.read() || only_one) {
-                if(left_opening) {
+                if(nextCell.l) {
                     mode = LEFT;
-                } else if(right_opening) {
+                } else if(nextCell.r) {
                     mode = RIGHT;
                 }
             }
         }
-       */
-        left_opening = false;
-        right_opening = false;
+       
+		currCell = nextCell;
+        nextCell.l = false;
+        nextCell.r = false;
+
+		return mode;
     }
 
     int left_speed = BASE_SPEED;
     int right_speed = BASE_SPEED;
     int correction;
-    bool can_use_walls = is_left_wall && is_right_wall && !left_opening && !right_opening;
+    bool can_use_walls = is_left_wall && is_right_wall && !nextCell.l && !nextCell.r;
     if(ir_pid && !can_use_walls) {
         ir_pid = false;
         encoder_controller.reset();
@@ -395,8 +438,8 @@ bool set_pos(int left_pos, int right_pos)
 {
     // be careful about burning out motors
     const int MAX_SPEED = 200;
-    static Pid left_position_controller(20, 0, 80);
-    static Pid right_position_controller(20, 0, 80);
+    static Pid left_position_controller(15, 0, 125); //20,0,80
+    static Pid right_position_controller(15, 0, 125);
     static int stable_count = 0;
 
     int left_speed, right_speed;
