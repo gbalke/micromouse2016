@@ -7,6 +7,8 @@
 #include "digital_output.h"
 #include "distance_sensor.h"
 
+#include "Solver.h"
+
 #include "stdlib.h"
 
 #include "mbed.h"
@@ -29,8 +31,8 @@ Serial serial(PA_2, PA_3);
 Serial serial(PA_9, PA_10);
 #endif 
 
-// Cells keep track of walls.
-struct Cell
+// Walls keep track of walls.
+struct Wall
 {
 	bool f:1, 		// Front Wall
 		 l:1, 		// Left Wall
@@ -92,6 +94,7 @@ bool stop();
 void brake();
 bool set_pos(int left_pos, int right_pos);
 bool turn(Mode direction);
+void updateDir (Mode step, Solver::DIRECTION & dir); 
 
 // temporary cell counter; eventually we need an (x, y) coordinate
 // (also this cell counter doesn't work fully at the moment)
@@ -114,8 +117,11 @@ int main()
     left_side_sensor.calibrate();
     right_side_sensor.calibrate();
 
-	
+	// Maintains current internal direction.
+	Solver::DIRECTION currDir = Solver::NORTH;
+
     Mode mode = INIT;
+	Mode lastMode = INIT;
 
     // NOTE: This event loop must run very fast, so do not put any long-running
     // or blocking functions in this loop. Instead, break those functions into
@@ -145,6 +151,12 @@ int main()
 #endif
             continue;
         }
+
+		// Updating direction facing.
+		if (lastMode != mode)	
+			updateDir(mode, currDir);
+
+		lastMode = mode;
 
         // FSM for controlling mouse movement
         switch(mode) {
@@ -232,8 +244,8 @@ Mode forward(int dist)
 {
     static Pid encoder_controller(10, 0.05, 100);
     static Pid ir_controller(3000, 0, 14000); // 3000,0,10000
-	static Cell currCell = {};
-	static Cell nextCell = {};
+	static Wall currWall = {};
+	static Wall nextWall = {};
     static bool is_green = false;
     static bool ir_pid = true;
     const int LEFT_WALL_THRESHOLD = 870;
@@ -255,8 +267,8 @@ Mode forward(int dist)
     bool is_right_wall = right_side_sensor.raw_read() >= RIGHT_WALL_THRESHOLD;
     // once we see an opening, we want to remember it until we reach the
     // next cell, so we store it these *_opening variables
-    nextCell.l |= !is_left_wall;
-    nextCell.r |= !is_right_wall;
+    nextWall.l |= !is_left_wall;
+    nextWall.r |= !is_right_wall;
 	
 	int pos = (left_encoder.count() + right_encoder.count()) / 2;
 
@@ -278,20 +290,20 @@ Mode forward(int dist)
 			cell_count++;
 			is_green = !is_green;
         	green.write(is_green);
-			currCell = nextCell;
+			currWall = nextWall;
 		}
 
         Mode mode;
-        if(currCell.l) {
+        if(currWall.l) {
             mode = LEFT;
-        } else if(currCell.r) {
+        } else if(currWall.r) {
             mode = RIGHT;
         } else {
             mode = FLIP;
         }
 		
-        nextCell.l = false;
-        nextCell.r = false;
+        nextWall.l = false;
+        nextWall.r = false;
         ir_controller.reset();
         encoder_controller.reset();
 		left_encoder.reset();
@@ -308,19 +320,19 @@ Mode forward(int dist)
 
 
         if(sw2.read() || (sw3.read() && (rand() % 2))) {
-            bool only_one = nextCell.l ^ nextCell.r;
+            bool only_one = nextWall.l ^ nextWall.r;
             if(!sw4.read() || only_one) {
-                if(nextCell.l) {
+                if(nextWall.l) {
                     mode = LEFT;
-                } else if(nextCell.r) {
+                } else if(nextWall.r) {
                     mode = RIGHT;
                 }
             }
         }
        
-		currCell = nextCell;
-        nextCell.l = false;
-        nextCell.r = false;
+		currWall = nextWall;
+        nextWall.l = false;
+        nextWall.r = false;
 
 		return mode;
     }
@@ -328,7 +340,7 @@ Mode forward(int dist)
     int left_speed = BASE_SPEED;
     int right_speed = BASE_SPEED;
     int correction;
-    bool can_use_walls = is_left_wall && is_right_wall && !nextCell.l && !nextCell.r;
+    bool can_use_walls = is_left_wall && is_right_wall && !nextWall.l && !nextWall.r;
     if(ir_pid && !can_use_walls) {
         ir_pid = false;
         encoder_controller.reset();
@@ -478,4 +490,37 @@ double battery_level()
 bool is_front_wall(double left, double right, double distance)
 {
     return left < distance && right < distance;
+}
+
+// Update current direction with new direction.
+void updateDir (Mode step, Solver::DIRECTION & dir)
+{
+	switch(step) {
+        case INIT: 
+            break;
+        case FORWARD:
+            break;
+        case LEFT:
+			if (dir == 0)
+				dir = Solver::WEST;
+			else
+				dir = Solver::DIRECTION(dir-1);
+			break;
+        case RIGHT:
+			if (dir == 3)
+				dir = Solver::NORTH;
+			else
+				dir = Solver::DIRECTION(dir+1);
+			break;
+        case FLIP:
+            if (dir == 2)
+				dir = Solver::NORTH;
+			else if (dir == 3)
+				dir = Solver::EAST;
+			else 
+				dir = Solver::DIRECTION(dir+2);
+			break;
+        case STOP:
+            break;
+    }
 }
