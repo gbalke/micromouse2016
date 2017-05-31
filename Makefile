@@ -2,7 +2,7 @@
 # see http://mbed.org/handbook/Exporting-to-GCC-ARM-Embedded
 
 # cross-platform directory manipulation
-BUILD_FILE = mouse
+BUILD_FILE = battle_mode
 PROJECT = micromouse
 LIBS = libs/
 HAL = hal/
