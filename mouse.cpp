@@ -87,7 +87,7 @@ const int CELL_LENGTH = 826; // Number of encoder counts in one cell.
 
 double battery_level();
 bool is_front_wall(double left, double right, double distance);
-Mode forward(int);
+Mode forward(Wall &);
 bool init();
 void backward();
 bool stop();
@@ -120,8 +120,14 @@ int main()
 	// Maintains current internal direction.
 	Solver::DIRECTION currDir = Solver::NORTH;
 
-    Mode mode = INIT;
-	Mode lastMode = INIT;
+	Solver solver;
+	Wall wall = {};
+	Solver::Cell cell = {};
+	Solver::Position position = {};
+
+    Mode mode = FORWARD;
+	Mode lastMode = mode;
+	Mode nextMode = mode;
 
     // NOTE: This event loop must run very fast, so do not put any long-running
     // or blocking functions in this loop. Instead, break those functions into
@@ -153,8 +159,29 @@ int main()
         }
 
 		// Updating direction facing.
-		if (lastMode != mode)	
+		if (lastMode != mode)
+		{
+			// If switching to forward, update position.
+			if (mode == FORWARD)
+			{
+				switch (currDir) {
+					case NORTH:
+						position.y++;
+						break;
+					case EAST:
+						position.x++;
+						break;
+					case SOUTH:
+						position.y--;
+						break;
+					case WEST:
+						position.x--;
+						break;
+				}
+			}
 			updateDir(mode, currDir);
+
+		}
 
 		lastMode = mode;
 
@@ -166,7 +193,7 @@ int main()
                 }
                 break;
             case FORWARD:
-                mode = forward(CELL_LENGTH);
+                mode = forward(CELL_LENGTH, wall);
                 break;
             case LEFT:
             case RIGHT:
@@ -182,6 +209,8 @@ int main()
                 stop();
                 break;
         }
+
+		Solver::DIRECTION nextDir = solver.update(position, currDir, cell);
     }
 }
 
@@ -196,7 +225,7 @@ bool init()
 
 // Performs one iteration of the forward moving PID.
 // Returns the next mode that the mouse should enter.
-Mode forward(int dist)
+Mode forward(Wall &)
 {
     static Pid encoder_controller(10, 0.05, 50);
     static Pid ir_controller(3000, 0, 14000); // 3000,0,10000
