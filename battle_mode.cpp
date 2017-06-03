@@ -19,8 +19,7 @@
 const static float DEBUG_WAIT_TIME = 1;	// Wait 2 seconds between each print loop.
 
 // Serial debug output options.
-#define IR_DEBUG	// IR Sensors 
-//#define ENC_DEBUG	// Encoders
+#define ENC_DEBUG	// Encoders
 
 #if !defined(BLUETOOTH) && defined(SERIAL_ENABLE)
 Serial serial(PA_2, PA_3);
@@ -74,7 +73,7 @@ bool stop();
 void brake();
 bool set_pos(int left_pos, int right_pos);
 bool turn(Mode direction);
-Mode manualDrive();
+Mode manualDrive(Mode);
 
 // temporary cell counter; eventually we need an (x, y) coordinate
 // (also this cell counter doesn't work fully at the moment)
@@ -111,7 +110,7 @@ int main()
             continue;
         }
 	
-		mode = manualDrive();
+		mode = manualDrive(mode);
 
         // FSM for controlling mouse movement
         switch(mode) {
@@ -123,7 +122,8 @@ int main()
                 break;
             case LEFT:
             case RIGHT:
-                turn(mode);                
+                if(turn(mode))
+					mode = IDLE;				
 				break;
 			case BACKWARD:
 				backward();
@@ -134,7 +134,7 @@ int main()
         }
 
 		// Delay to buffer input.
-		wait(0.001);
+		//wait(0.1);
 
     }
 }
@@ -143,9 +143,9 @@ int main()
 // Returns the next mode that the mouse should enter.
 void forward()
 {
-    static Pid encoder_controller(10, 0.05, 100);
+    static Pid encoder_controller(20, 0.0, 5);
    	const int BASE_SPEED = 20;
-    const int MAX_SPEED = 300;
+    const int MAX_SPEED = 100;
 
     int left_speed = BASE_SPEED;
     int right_speed = BASE_SPEED;
@@ -287,29 +287,34 @@ double battery_level()
     return (8.3 / 54700) * voltage_divider.read_u16();
 }
 
-Mode manualDrive ()
+Mode manualDrive (Mode mode)
 {
-
 	if (serial.readable()) {
-		switch (serial.getc())
+		char in = serial.getc();
+		serial.printf("%c",in);
+
+		// Flush serial buffer to make sure it doesn't overflow.
+		while(serial.readable())
+			serial.getc();
+
+		// Reset encoder counts.
+		left_encoder.reset();
+        right_encoder.reset();
+
+		switch (in)
 		{
 			case 'w':
 				return FORWARD;
-				break;
 			case 'a':
 				return LEFT;
-				break;
 			case 'd':
 				return RIGHT;
-				break;
 			case 's':
 				return BACKWARD;
-				break;
-			default:
+			case 'e':
 				return IDLE;
-				break;
 		}
 	}
 
-	return STOP;
+	return mode;
 }
